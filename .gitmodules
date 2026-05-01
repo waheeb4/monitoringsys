@@ -1,0 +1,3 @@
+[submodule "dxc-backend"]
+	path = dxc-backend
+	url = git@github.com:nabil0412/DXC-IoT-Monitoring-System-backend.git
