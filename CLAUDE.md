@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-IoT monitoring system with three components: Angular frontend, Spring Boot backend, MySQL database. This repo is the infrastructure/orchestration layer. The backend lives in the `dxc-backend` git submodule.
+IoT monitoring system with three components: Angular frontend, Spring Boot backend, MySQL database. This repo is the infrastructure/orchestration layer. The backend lives in the `DXC-IoT-Monitoring-System-backend` git submodule.
 
 ## Running the System
 
@@ -18,7 +18,7 @@ The script tears down existing containers/network, builds images in parallel, wa
 ## Docker Architecture
 
 - `database.Dockerfile` — MySQL image with `schema.sql` copied into `/docker-entrypoint-initdb.d/` for auto-initialization on first boot
-- `backend.Dockerfile` — multi-stage Maven build (deps cache → compile → JRE runtime), copies source from `dxc-backend/`
+- `backend.Dockerfile` — multi-stage Maven build (deps cache → compile → JRE runtime), copies source from `DXC-IoT-Monitoring-System-backend/`
 - All containers communicate over the `dxc-network` bridge network, enabling DNS resolution by container name
 
 ## Key Conventions
@@ -37,7 +37,7 @@ The script tears down existing containers/network, builds images in parallel, wa
 git submodule update --init
 ```
 
-The backend submodule (`dxc-backend`) must be committed and pushed separately before updating the pointer in this repo.
+The backend submodule (`DXC-IoT-Monitoring-System-backend`) must be committed and pushed separately before updating the pointer in this repo.
 
 ## Testing
 
