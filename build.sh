@@ -2,6 +2,20 @@
 
 set -e
 
+if [ -z "$1" ]; then
+    echo "Specify docker hub username please!"
+    echo "./build.sh <username>"
+    exit 1
+fi
+
+REGISTRY="$1"
+
+docker login
+
+DB_IMAGE="$REGISTRY/database-service:v1.0"
+BACKEND_IMAGE="$REGISTRY/backend-service:v1.0"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.0"
+
 docker stop db-container || true
 docker rm db-container || true
 
@@ -15,28 +29,31 @@ docker network rm dxc-network || true
 
 docker network create dxc-network
 
-docker build -f DXC-IoT-Monitoring-System-backend/database.Dockerfile -t database:1.0 DXC-IoT-Monitoring-System-backend/ &
+docker build -f DXC-IoT-Monitoring-System-backend/database.Dockerfile -t "$DB_IMAGE" DXC-IoT-Monitoring-System-backend/ &
 databasepid=$!
 
-docker build -f DXC-IoT-Monitoring-System-backend/backend.Dockerfile -t backend:1.0 DXC-IoT-Monitoring-System-backend/ &
+docker build -f DXC-IoT-Monitoring-System-backend/backend.Dockerfile -t "$BACKEND_IMAGE" DXC-IoT-Monitoring-System-backend/ &
 backendpid=$!
 
-docker build -f DXC-IoT-Monitoring-System-frontend/frontend.Dockerfile -t frontend:1.0 DXC-IoT-Monitoring-System-frontend/ &
+docker build -f DXC-IoT-Monitoring-System-frontend/frontend.Dockerfile -t "$FRONTEND_IMAGE" DXC-IoT-Monitoring-System-frontend/ &
 frontendpid=$!
 
 wait $databasepid $backendpid $frontendpid
 
-docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d database:1.0
+docker push "$DB_IMAGE"
+docker push "$BACKEND_IMAGE"
+docker push "$FRONTEND_IMAGE"
+
+docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d "$DB_IMAGE"
 
 until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-container -uroot -pmy-pwd --silent 2>/dev/null; do
     sleep 1
 done
 
-docker run --name backend-container --network dxc-network -p 8080:8080 -d backend:1.0
+docker run --name backend-container --network dxc-network -p 8080:8080 -d "$BACKEND_IMAGE"
 
 until [ "$(curl -s http://localhost:8080/heartbeat)" = "alive" ]; do                                                         
       sleep 1                                                                                                                 
 done
 
-docker run --name frontend-container --network dxc-network -p 4200:8080 -d frontend:1.0
-
+docker run --name frontend-container --network dxc-network -p 4200:8080 -d "$FRONTEND_IMAGE"
