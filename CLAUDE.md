@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-IoT monitoring system with three components: Angular frontend, Spring Boot backend, MySQL database. This repo is the infrastructure/orchestration layer. The backend lives in the `DXC-IoT-Monitoring-System-backend` git submodule.
+IoT monitoring system with three components: Angular frontend, Spring Boot backend, MySQL database. This repo is the infrastructure/orchestration layer. Both frontend and backend live in git submodules.
 
 ## Running the System
 
@@ -13,22 +13,59 @@ IoT monitoring system with three components: Angular frontend, Spring Boot backe
 ./build.sh
 ```
 
-The script tears down existing containers/network, builds images in parallel, waits for both, starts the DB, polls until MySQL accepts connections, then starts the backend.
+The script tears down existing containers/network, builds all three images in parallel, starts the DB, polls until MySQL accepts connections, starts the backend and polls until `/heartbeat` responds, then starts the frontend.
+
+## Frontend Dev (Angular)
+
+```bash
+cd DXC-IoT-Monitoring-System-frontend
+npm install
+npm start        # ng serve — dev server at http://localhost:4200
+npm test         # ng test (uses vitest via @angular/build:unit-test, not Karma)
+ng build         # production build — outputs to dist/mp-app/browser (CSR) and dist/mp-app/server (SSR)
+```
+
+Angular 21 with SSR (`@angular/ssr` + Express). In dev (`npm start`), no proxy is configured — API calls to the backend require either a proxy config or CORS. In Docker, the nginx layer handles this (see below).
+
+## Backend Local Dev (without Docker)
+
+Requires MySQL running and reachable at `db-container:3306` (or edit `application.properties`):
+
+```bash
+cd DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend
+./mvnw spring-boot:run
+
+# Or skip tests and package
+./mvnw package -DskipTests
+```
 
 ## Docker Architecture
 
 - `database.Dockerfile` — MySQL 9.7 image with `schema.sql` copied into `/docker-entrypoint-initdb.d/` for auto-initialization on first boot
-- `backend.Dockerfile` — three-stage Maven build: `deps` stage pre-fetches dependencies via `mvn dependency:go-offline`, `build` stage compiles and packages with `-DskipTests`, `runtime` stage uses `eclipse-temurin:25-jre`
-- All containers communicate over the `dxc-network` bridge network, enabling DNS resolution by container name
+- `backend.Dockerfile` — three-stage Maven build: `deps` pre-fetches via `mvn dependency:go-offline`, `build` compiles with `-DskipTests`, `runtime` uses `eclipse-temurin:25-jre`
+- `frontend.Dockerfile` — two-stage build: Node 24 Alpine runs `npm run build`, then `nginxinc/nginx-unprivileged:alpine` serves the output. Copies `dist/mp-app/browser` (CSR only — SSR is not used in Docker)
+- All three Dockerfiles live inside their respective submodules; `build.sh` passes the submodule as the build context so all `COPY` paths are relative to the submodule root
+- All containers communicate over the `dxc-network` bridge network
+
+## Nginx as API Proxy (Critical)
+
+The frontend container runs nginx on port 8080 (mapped to host `4200`). `nginx.conf` proxies backend routes so the Angular app never needs CORS:
+
+| Client request | Proxied to |
+|---|---|
+| `localhost:4200/auth/*` | `backend-container:8080/auth/*` |
+| `localhost:4200/api/users/*` | `backend-container:8080/api/users/*` |
+| `localhost:4200/heartbeat` | `backend-container:8080/heartbeat` |
+
+Angular makes calls to `localhost:4200/...` in the browser; nginx resolves `backend-container` via Docker's internal DNS (`127.0.0.11`). This is the only supported integration path — do not configure CORS on the backend for Docker use.
 
 ## Key Conventions
 
-- Container names: `db-container`, `backend-container` — Network: `dxc-network` — Volume: `db-data`
+- Container names: `db-container`, `backend-container`, `frontend-container` — Network: `dxc-network` — Volume: `db-data`
 - MySQL data persisted via volume at `/var/lib/mysql`
 - `initdb.d/` only runs when the volume is empty — run `docker volume rm db-data` to force schema re-initialization
 - Backend connects to DB at `db-container:3306`, database name `monitoring`, credentials `root/my-pwd`
-- Frontend (Angular) uses `localhost:<port>` for API calls since it runs in the browser, not in Docker
-- `application.properties` is tracked in the submodule at `DXC-IoT-Monitoring-System-backend/src/main/resources/`; the Dockerfile copies it via `DXC-IoT-Monitoring-System-backend/src`
+- `application.properties` must exist at `DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend/src/main/resources/application.properties` — this is what gets packaged into the JAR. There is also a duplicate at the submodule root (`DXC-IoT-Monitoring-System-backend/src/main/resources/`) — only the nested path matters
 
 ## Submodule Structure
 
@@ -37,17 +74,32 @@ The script tears down existing containers/network, builds images in parallel, wa
 git submodule update --init
 ```
 
-The submodule root (`DXC-IoT-Monitoring-System-backend/`) contains:
-- `src/main/resources/application.properties` — DB/JWT config, copied into the Docker image
-- `DXC-IoT-Monitoring-System-backend/` — the actual Spring Boot Maven project (pom.xml + Java source)
+Both submodules must be committed and pushed to their own remotes before updating the pointer in this repo:
 
-`backend.Dockerfile` copies from `DXC-IoT-Monitoring-System-backend/pom.xml` and `DXC-IoT-Monitoring-System-backend/src` — these paths point to the submodule root's `src/` (application.properties only) and the inner project directory. If the Dockerfile needs to compile Java source, the copy path must target `DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend/`.
+- `DXC-IoT-Monitoring-System-backend/` — backend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-backend.git`)
+  - `DXC-IoT-Monitoring-System-backend/` — nested: the actual Spring Boot Maven project (`pom.xml` + Java source)
+  - `backend.Dockerfile`, `database.Dockerfile`, `schema.sql` — live at the submodule root
+- `DXC-IoT-Monitoring-System-frontend/` — frontend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-frontend.git`)
+  - `frontend.Dockerfile`, `nginx.conf` — live at the submodule root
 
-The backend submodule must be committed and pushed separately before updating the pointer in this repo.
+## Frontend Architecture
+
+Angular 21, standalone components, no NgModules. Routes:
+
+- `/signup` (default) → `SignupComponent`
+- `/login` → `LoginComponent`
+- `/home` → `HomeComponent`
+- `/profile` → `ProfileComponent`
+
+**Critical**: Frontend auth is NOT wired to the backend API. `SignupComponent` saves user data to the in-memory `UserService`; `LoginComponent` validates against that same in-memory store — no HTTP calls are made. `ProfileService` returns hardcoded mock data. The backend API endpoints exist and work, but the Angular HTTP integration still needs to be built.
+
+Services:
+- `UserService` — in-memory session store (lost on page refresh)
+- `ProfileService` — still mocked with hardcoded data
 
 ## Backend Package Structure
 
-Spring Boot 3.5 app at `com.example.DXCproject`. All features live under `auth/`, each as a vertical slice with `Controller`, `Service`, and `Repository`:
+Spring Boot 3.5.14 app at `com.example.DXCproject`. All features live under `auth/`, each as a vertical slice with `Controller`, `Service`, and `Repository`:
 
 - `auth/login/` — POST `/auth/login`, returns JWT
 - `auth/signup/` — POST `/auth/signup`, BCrypt-hashes password
@@ -55,10 +107,10 @@ Spring Boot 3.5 app at `com.example.DXCproject`. All features live under `auth/`
 - `auth/user_profile/`
 - `auth/update_profile_picture/`
 - `auth/User.java` — JPA entity mapped to `users` table (UUID PK as `CHAR(36)`)
-- `auth/SecurityConfig.java` — Spring Security configured stateless, CSRF off, all requests permitted; JWT enforcement is handled manually in services
+- `auth/SecurityConfig.java` — Spring Security configured stateless, CSRF off, all requests permitted; JWT enforcement is handled manually in each Service (not via a filter)
 - `HealthController.java` — GET `/heartbeat`
 
-Stack: Spring Boot 3.5, Spring Data JPA, Spring Security, JJWT 0.12.6, MySQL Connector/J. `pom.xml` targets Java 17; Dockerfile runtime uses `eclipse-temurin:25-jre`.
+Stack: Spring Boot 3.5.14, Spring Data JPA, Spring Security, JJWT 0.12.6, MySQL Connector/J. `pom.xml` targets Java 17; Dockerfile runtime uses `eclipse-temurin:25-jre`.
 
 ## Testing
 
@@ -77,4 +129,4 @@ docker run --rm --network dxc-network mysql:latest mysql -h db-container -uroot 
 
 ## Schema
 
-Owner: `schema.sql` (infrastructure layer). Hibernate is set to `ddl-auto=validate` — it checks but does not create tables. The `users` table must match the `User` entity in `User.java` exactly.
+Owner: `schema.sql` in the backend submodule root. Hibernate is set to `ddl-auto=validate` — it checks but does not create tables. The `users` table must match the `User` entity in `User.java` exactly.
