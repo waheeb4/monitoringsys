@@ -8,12 +8,12 @@ The system provides a centralized dashboard where operators can monitor live sen
 
 ## Features
 
-| 1 | Real-time sensor data collection and live dashboard 
-| 2 | Threshold-based alerts and email notifications 
-| 3 | Historical data analysis, trend charts, and filters 
-| 4 | Remote device control via API commands 
-| 5 | Automated rule-based actions 
-| 6 | Data export (CSV / JSON) and scheduled email reports
+- Real-time sensor data collection and live dashboard 
+- Threshold-based alerts and email notifications 
+- Historical data analysis, trend charts, and filters 
+- Remote device control via API commands 
+- Automated rule-based actions 
+- Data export (CSV / JSON) and scheduled email reports
 
 ---
 
