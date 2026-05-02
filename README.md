@@ -1,127 +1,95 @@
-# DXC IoT Monitoring System
+# DXC Smart IoT Monitoring System
 
-A real-time IoT sensor monitoring platform. Angular 21 frontend, Spring Boot backend, MySQL database — all containerized and orchestrated via Docker with nginx as the API gateway.
+A full-stack IoT platform for collecting, processing, and analyzing real-time sensor data. Built for industries such as smart homes, industrial automation, agriculture, and environmental monitoring.
+
+The system provides a centralized dashboard where operators can monitor live sensor readings, visualize historical trends, receive threshold-based alerts, remotely control devices, and define automation rules that execute without manual intervention.
 
 ---
 
-## Architecture
+## Features
+
+| 1 | Real-time sensor data collection and live dashboard 
+| 2 | Threshold-based alerts and email notifications 
+| 3 | Historical data analysis, trend charts, and filters 
+| 4 | Remote device control via API commands 
+| 5 | Automated rule-based actions 
+| 6 | Data export (CSV / JSON) and scheduled email reports
+
+---
+
+## How It Works
+
+Sensors send readings to the backend via HTTP POST. The backend stores incoming data in MySQL, evaluates user-defined thresholds, and triggers alerts or automated actions when conditions are met. The Angular frontend connects to the backend through an nginx reverse proxy and displays live charts, historical trends, and device controls in a single dashboard.
 
 ```
-Browser
-  │
-  └─► localhost:4200  (nginx, port 8080 inside container)
+Sensors / IoT Devices
         │
-        ├─ /auth/*          ──► backend-container:8080
-        ├─ /api/users/*     ──► backend-container:8080
-        ├─ /heartbeat       ──► backend-container:8080
-        └─ /*               ──► Angular static files (CSR)
-
-Docker network: dxc-network
-  ├── db-container        MySQL 9.7       (internal only)
-  ├── backend-container   Spring Boot     localhost:8080
-  └── frontend-container  nginx + Angular localhost:4200
+        │  HTTP POST (sensor readings)
+        ▼
+┌───────────────────────────────────┐
+│           nginx (port 4200)       │  ◄── Browser / Operator Dashboard
+│                                   │
+│  /auth/*       ──► Spring Boot    │
+│  /api/*        ──► Spring Boot    │
+│  /heartbeat    ──► Spring Boot    │
+│  /*            ──► Angular SPA    │
+└───────────────────────────────────┘
+        │
+        │  Internal Docker network (dxc-network)
+        ▼
+┌──────────────────┐    ┌──────────────────┐
+│   Spring Boot    │───►│     MySQL 9.7    │
+│  (backend:8080)  │    │  (db:3306)       │
+└──────────────────┘    └──────────────────┘
 ```
+---
 
-nginx handles all API proxying inside the Docker network — no CORS configuration is needed on the backend.
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Angular 21, TypeScript, Reactive Forms, SSR |
+| Backend | Spring Boot 3.5, Spring Security, Spring Data JPA, JJWT |
+| Database | MySQL 9.7 |
+| Gateway | nginx (reverse proxy + static file server) |
+| Containerization | Docker, Docker Hub |
 
 ---
 
 ## Prerequisites
 
 - Docker
-- A Docker Hub account (for pushing images)
-
-For local development (without Docker):
-
-- Node.js 24+ and npm
-- Java 17+ and Maven
-- MySQL running locally
+- A Docker Hub account
 
 ---
 
-## Quick Start (Docker)
+## Getting Started
 
 ```bash
 git clone <repo-url>
+cd dxc-monitoring-system
 git submodule update --init
 
 ./build.sh <your-dockerhub-username>
 ```
 
-## Project Structure
+This will build all three images in parallel, push them to Docker Hub, then start and health-check each container in order. The app will be available at `http://localhost:4200`.
 
-```
-dxc-monitoring-system/              ← orchestration root
-├── build.sh                        ← build + run script
-├── DXC-IoT-Monitoring-System-frontend/   ← git submodule
-│   ├── frontend.Dockerfile
-│   ├── nginx.conf
-│   └── src/
-│       └── app/
-│           ├── signup/             ← SignupComponent
-│           ├── login/              ← LoginComponent
-│           ├── home/               ← HomeComponent
-│           ├── profile/            ← ProfileComponent
-│           └── services/
-│               ├── user.ts         ← in-memory session store
-│               └── profile-service.ts  ← mocked (not wired to API)
-└── DXC-IoT-Monitoring-System-backend/   ← git submodule
-    ├── backend.Dockerfile
-    ├── database.Dockerfile
-    ├── schema.sql
-    └── DXC-IoT-Monitoring-System-backend/   ← Spring Boot Maven project
-        └── src/main/java/com/example/DXCproject/
-            ├── auth/
-            │   ├── login/          ← POST /auth/login
-            │   ├── signup/         ← POST /auth/signup
-            │   ├── change_password/
-            │   ├── user_profile/
-            │   ├── update_profile_picture/
-            │   ├── User.java       ← JPA entity (UUID PK)
-            │   └── SecurityConfig.java
-            └── HealthController.java  ← GET /heartbeat
-```
+> **Note:** On first run, MySQL initializes the schema automatically from `schema.sql`. On subsequent runs the data volume is reused. To reset the database: `docker volume rm db-data` before running the script.
 
 ---
 
-## API Endpoints
+## API Reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/heartbeat` | Health check — returns `alive` |
-| POST | `/auth/signup` | Register a new user |
-| POST | `/auth/login` | Authenticate — returns JWT |
-| POST | `/auth/change_password` | Change user password |
-| GET | `/api/users/profile` | Get user profile |
-| PUT | `/api/users/update_profile_picture` | Update avatar |
+All endpoints are accessible through the nginx proxy at `localhost:4200`. Direct access to the backend on port 8080 is available in development only.
 
-Authentication is JWT-based. The backend validates tokens manually in each service — there is no global security filter.
-
----
-
-## Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Angular 21, TypeScript, Reactive Forms, SSR (`@angular/ssr`) |
-| Backend | Spring Boot 3.5, Spring Security, Spring Data JPA, JJWT 0.12.6 |
-| Database | MySQL 9.7 |
-| Proxy | nginx (unprivileged Alpine) |
-| Build | Maven (3-stage Docker build), Node 24 Alpine |
-| Runtime | eclipse-temurin:25-jre |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/heartbeat` | None | Service health check |
+| POST | `/auth/signup` | None | Register a new operator account |
+| POST | `/auth/login` | None | Authenticate — returns JWT |
+| POST | `/auth/change_password` | JWT | Change account password |
+| GET | `/api/users/profile` | JWT | Get authenticated user profile |
+| PUT | `/api/users/update_profile_picture` | JWT | Update profile avatar |
 
 ---
-
-## Configuration
-
-### Database
-
-| Key | Value |
-|-----|-------|
-| Host | `db-container:3306` |
-| Database | `monitoring` |
-| User | `root` |
-| Password | `my-pwd` |
-| Volume | `db-data` |
-
-Schema source of truth: `DXC-IoT-Monitoring-System-backend/schema.sql`. Hibernate runs in `validate` mode — it checks against the schema but does not create or alter tables.
