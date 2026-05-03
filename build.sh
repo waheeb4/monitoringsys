@@ -40,20 +40,35 @@ frontendpid=$!
 
 wait $databasepid $backendpid $frontendpid
 
-docker push "$DB_IMAGE"
-docker push "$BACKEND_IMAGE"
-docker push "$FRONTEND_IMAGE"
-
 docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d "$DB_IMAGE"
 
+retries=0
 until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-container -uroot -pmy-pwd --silent 2>/dev/null; do
+    retries=$((retries + 1))
+    if [ "$retries" -ge 60 ]; then
+        echo "DB failed to start!"
+        exit 1
+    fi
     sleep 1
 done
 
-docker run --name backend-container --network dxc-network -p 8080:8080 -d "$BACKEND_IMAGE"
+docker run --name backend-container --network dxc-network -d "$BACKEND_IMAGE"
 
-until [ "$(curl -s http://localhost:8080/heartbeat)" = "alive" ]; do                                                         
-      sleep 1                                                                                                                 
+retries=0
+until [ "$(docker run --rm --network dxc-network curlimages/curl curl -s http://backend-container:8080/heartbeat)" = "alive" ]; do
+    retries=$((retries + 1))
+    if [ "$retries" -ge 60 ]; then
+        echo "Backend failed to start!"
+        exit 1
+    fi
+    sleep 1
 done
 
 docker run --name frontend-container --network dxc-network -p 4200:8080 -d "$FRONTEND_IMAGE"
+
+echo "Access the web app via: http://localhost:4200"
+sleep 5
+
+docker push "$DB_IMAGE"
+docker push "$BACKEND_IMAGE"
+docker push "$FRONTEND_IMAGE"
