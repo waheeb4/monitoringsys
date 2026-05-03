@@ -1,4 +1,4 @@
-# DXC Smart IoT Monitoring System
+# IoT Monitoring System
 
 A full-stack IoT platform for collecting, processing, and analyzing real-time sensor data. Built for industries such as smart homes, industrial automation, agriculture, and environmental monitoring.
 
