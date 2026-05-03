@@ -25,7 +25,7 @@ npm test         # ng test (uses vitest via @angular/build:unit-test, not Karma)
 ng build         # production build — outputs to dist/mp-app/browser (CSR) and dist/mp-app/server (SSR)
 ```
 
-Angular 21 with SSR (`@angular/ssr` + Express). In dev (`npm start`), no proxy is configured — API calls to the backend require either a proxy config or CORS. In Docker, the nginx layer handles this (see below).
+Angular 21 with SSR (`@angular/ssr` + Express). In dev (`npm start`), `proxy.conf.json` is wired via `angular.json` (`proxyConfig`) — `/auth`, `/api`, and `/heartbeat` are proxied to `http://localhost:8080`. In Docker, the nginx layer handles this instead (see below).
 
 ## Backend Local Dev (without Docker)
 
@@ -84,18 +84,18 @@ Both submodules must be committed and pushed to their own remotes before updatin
 
 ## Frontend Architecture
 
-Angular 21, standalone components, no NgModules. Routes:
+Angular 21, standalone components, no NgModules. Routes with guards:
 
-- `/signup` (default) → `SignupComponent`
-- `/login` → `LoginComponent`
+- `/signup` (default) → `SignupComponent` — `guestGuard` (redirects to `/profile` if logged in)
+- `/login` → `LoginComponent` — `guestGuard`
 - `/home` → `HomeComponent`
-- `/profile` → `ProfileComponent`
+- `/profile` → `ProfileComponent` — `authGuard` (redirects to `/login` if not logged in)
 
-**Critical**: Frontend auth is NOT wired to the backend API. `SignupComponent` saves user data to the in-memory `UserService`; `LoginComponent` validates against that same in-memory store — no HTTP calls are made. `ProfileService` returns hardcoded mock data. The backend API endpoints exist and work, but the Angular HTTP integration still needs to be built.
+Guards check `localStorage.getItem('token')` via `UserService.isLoggedIn()`.
 
 Services:
-- `UserService` — in-memory session store (lost on page refresh)
-- `ProfileService` — still mocked with hardcoded data
+- `UserService` — HTTP-wired. `signup()` → POST `/auth/signup`, `login()` → POST `/auth/login`. JWT token persisted in `localStorage` (survives page refresh). `setUser()` stores token; `clearUser()` removes it.
+- `ProfileService` — HTTP-wired. `getMyProfile()` → GET `/api/users/me`, `updateProfilePicture()` → PATCH `/api/users/picture`, `changePassword()` → POST `/api/users/password`.
 
 ## Backend Package Structure
 
