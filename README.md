@@ -29,6 +29,7 @@ There are three scripts depending on your goal:
 
 ```bash
 git clone --recursive <repo-url>
+cd monitoring-system
 git submodule update --init
 ./dev.sh
 ```
