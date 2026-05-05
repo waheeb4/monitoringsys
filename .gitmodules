@@ -1,7 +1,7 @@
-[submodule "DXC-IoT-Monitoring-System-backend"]
-	path = DXC-IoT-Monitoring-System-backend
-	url = git@github.com:nabil0412/DXC-IoT-Monitoring-System-backend.git
+[submodule "IoT-Monitoring-System-backend"]
+	path = IoT-Monitoring-System-backend
+	url = git@github.com:nabil0412/IoT-Monitoring-System-backend.git
 	branch = main
-[submodule "DXC-IoT-Monitoring-System-frontend"]
-	path = DXC-IoT-Monitoring-System-frontend
-	url = git@github.com:nabil0412/DXC-IoT-Monitoring-System-frontend.git
+[submodule "IoT-Monitoring-System-frontend"]
+	path = IoT-Monitoring-System-frontend
+	url = git@github.com:nabil0412/IoT-Monitoring-System-frontend.git
