@@ -28,10 +28,8 @@ There are three scripts depending on your goal:
 ### Development — build locally, no registry
 
 ```bash
-git clone <repo-url>
-cd dxc-monitoring-system
+git clone --recursive <repo-url>
 git submodule update --init
-
 ./dev.sh
 ```
 
