@@ -19,13 +19,13 @@ docker network rm dxc-network || true
 
 docker network create dxc-network
 
-docker build -f DXC-IoT-Monitoring-System-backend/database.Dockerfile -t "$DB_IMAGE" DXC-IoT-Monitoring-System-backend/ &
+docker build -f IoT-Monitoring-System-backend/database.Dockerfile -t "$DB_IMAGE" IoT-Monitoring-System-backend/ &
 databasepid=$!
 
-docker build -f DXC-IoT-Monitoring-System-backend/backend.Dockerfile -t "$BACKEND_IMAGE" DXC-IoT-Monitoring-System-backend/ &
+docker build -f IoT-Monitoring-System-backend/backend.Dockerfile -t "$BACKEND_IMAGE" IoT-Monitoring-System-backend/ &
 backendpid=$!
 
-docker build -f DXC-IoT-Monitoring-System-frontend/frontend.Dockerfile -t "$FRONTEND_IMAGE" DXC-IoT-Monitoring-System-frontend/ &
+docker build -f IoT-Monitoring-System-frontend/frontend.Dockerfile -t "$FRONTEND_IMAGE" IoT-Monitoring-System-frontend/ &
 frontendpid=$!
 
 wait $databasepid $backendpid $frontendpid
