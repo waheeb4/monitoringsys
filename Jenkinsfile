@@ -15,11 +15,14 @@ pipeline { // Declares this as a Jenkins declarative pipeline
                 checkout scm // Clones the repo where THIS Jenkinsfile lives — gives Jenkins access to docker-compose.hub.yml
 
                 echo 'Detecting and cloning most recently updated branches...' // Prints message to Jenkins console log
-                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) { // Securely loads GitHub credentials from Jenkins store — masked in logs, exposed as GH_USER and GH_TOKEN
+                sshagent(['github-ssh']) { // Loads the SSH private key from Jenkins credential 'github-ssh' into an ssh-agent for this block — git picks it up automatically (requires the SSH Agent plugin)
 
                     // ── BACKEND ──────────────────────────────────────────────
                     sh '''
-                        git clone --bare https://$GH_USER:$GH_TOKEN@github.com/nabil0412/IoT-Monitoring-System-backend.git /tmp/backend-temp
+                        export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
+                        # github.com is not in the container's known_hosts on a fresh build — accept-new trusts it on first connect so the SSH clone doesn't fail host-key verification
+
+                        git clone --bare git@github.com:nabil0412/IoT-Monitoring-System-backend.git /tmp/backend-temp
                         # Clone only git metadata of backend repo (no source files) — bare is fast and lightweight
 
                         LATEST=$(git -C /tmp/backend-temp for-each-ref --sort=-committerdate --format="%(refname:short)" refs/heads/ | head -1)
@@ -31,13 +34,16 @@ pipeline { // Declares this as a Jenkins declarative pipeline
                         rm -rf /tmp/backend-temp
                         # Delete the temporary bare clone — no longer needed
 
-                        rm -rf backend-repo && git clone -b $LATEST https://$GH_USER:$GH_TOKEN@github.com/nabil0412/IoT-Monitoring-System-backend.git backend-repo
+                        rm -rf backend-repo && git clone -b $LATEST git@github.com:nabil0412/IoT-Monitoring-System-backend.git backend-repo
                         # Delete any old backend-repo folder, then do the real full clone using the detected branch
                     '''
 
                     // ── FRONTEND ─────────────────────────────────────────────
                     sh '''
-                        git clone --bare https://$GH_USER:$GH_TOKEN@github.com/nabil0412/IoT-Monitoring-System-frontend.git /tmp/frontend-temp
+                        export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
+                        # github.com is not in the container's known_hosts on a fresh build — accept-new trusts it on first connect so the SSH clone doesn't fail host-key verification
+
+                        git clone --bare git@github.com:nabil0412/IoT-Monitoring-System-frontend.git /tmp/frontend-temp
                         # Clone only git metadata of frontend repo (no source files) — bare is fast and lightweight
 
                         LATEST=$(git -C /tmp/frontend-temp for-each-ref --sort=-committerdate --format="%(refname:short)" refs/heads/ | head -1)
@@ -49,7 +55,7 @@ pipeline { // Declares this as a Jenkins declarative pipeline
                         rm -rf /tmp/frontend-temp
                         # Delete the temporary bare clone — no longer needed
 
-                        rm -rf frontend-repo && git clone -b $LATEST https://$GH_USER:$GH_TOKEN@github.com/nabil0412/IoT-Monitoring-System-frontend.git frontend-repo
+                        rm -rf frontend-repo && git clone -b $LATEST git@github.com:nabil0412/IoT-Monitoring-System-frontend.git frontend-repo
                         # Delete any old frontend-repo folder, then do the real full clone using the detected branch
                     '''
                 }
