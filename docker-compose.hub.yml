@@ -1,135 +1,71 @@
-##############################################################
-# docker-compose.yml — Sprint2-Environment/
-##############################################################
-
 services:
-
-  # ──────────────────────────────────────────
-  # MySQL Database
-  # ──────────────────────────────────────────
   database:
-    image: somefreebie/iot-database:v1.4
+    image: waheeb4/iot-database:${IMAGE_VERSION}
     container_name: iot-database
-
     environment:
-      MYSQL_DATABASE: monitoring
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
-
-    secrets:
-      - mysql_root_password
-
-    volumes:
-      - mysql_data:/var/lib/mysql
-
+      MYSQL_ROOT_PASSWORD: rootpassword123
     networks:
       - backend-net
-
     restart: unless-stopped
-
+    volumes:
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root --password=\"$$(cat /run/secrets/mysql_root_password)\" --silent"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword123"]
       interval: 30s
       timeout: 5s
       start_period: 30s
       retries: 5
 
-  # ──────────────────────────────────────────
-  # Spring Boot Backend
-  # ──────────────────────────────────────────
   backend:
-    image: somefreebie/iot-backend:v1.4
+    image: waheeb4/iot-backend:${IMAGE_VERSION}
+    platform: linux/amd64
     container_name: backend-container
-
-    # Use an entrypoint wrapper to read the secret file and export it
-    # as SPRING_DATASOURCE_PASSWORD before Spring Boot starts
-    entrypoint: ["/bin/sh", "-c",
-      "export SPRING_DATASOURCE_PASSWORD=$(cat /run/secrets/mysql_root_password) &&
-       export JWT_SECRET=$(cat /run/secrets/jwt_secret) &&
-       exec java -Djava.security.egd=file:/dev/./urandom -jar app.jar"    ]
-
     environment:
-      # SIMULATOR_BASE_URL: http://localhost:8080
       JWT_EXPIRATION_MS: 86400000
-      
-
-
-    secrets:
-      - mysql_root_password
-      - jwt_secret
-
-    volumes:
-      - backend_data:/app/data
-
+      SPRING_DATASOURCE_URL: jdbc:mysql://iot-database:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: rootpassword123
+      JWT_SECRET: myjwtsecretkey123456789012345678
+      CORS_ALLOWED_ORIGINS: http://localhost
+      SENSOR_API_KEY: my-sensor-key-12345
+      SIMULATOR_BASE_URL: http://localhost:8080
     networks:
       - backend-net
       - frontend-net
-
     depends_on:
       database:
         condition: service_healthy
-
     restart: unless-stopped
-
     user: "1001:1001"
-
     healthcheck:
-          # Use 127.0.0.1 to avoid IPv6 issues, and drop grep. 
-          # curl will succeed as long as Tomcat is listening.
-          test: ["CMD-SHELL", "curl --silent --output /dev/null http://127.0.0.1:8080/"]
-          interval: 10s
-          timeout: 5s
-          start_period: 15s
-          retries: 3
-
+      test: ["CMD-SHELL", "curl --silent --output /dev/null http://127.0.0.1:8080/heartbeat"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
     ports:
-      - "8080:8080"
+      - "8081:8080"
 
-  # ──────────────────────────────────────────
-  # Angular Frontend (served by nginx)
-  # ──────────────────────────────────────────
   frontend:
-    image: somefreebie/iot-frontend:v1.4
+    image: waheeb4/iot-frontend:${IMAGE_VERSION}
+    platform: linux/amd64
     container_name: iot-frontend
-
     networks:
       - frontend-net
-
     depends_on:
       backend:
         condition: service_healthy
-
     restart: unless-stopped
-
     user: "101:101"
-
-
-
     ports:
       - "80:8080"
 
-##############################################################
-# Networks
-##############################################################
 networks:
   backend-net:
     driver: bridge
   frontend-net:
     driver: bridge
 
-##############################################################
-# Volumes
-##############################################################
 volumes:
   mysql_data:
     driver: local
-  backend_data:
-    driver: local
-
-##############################################################
-# Secrets
-##############################################################
-secrets:
-  mysql_root_password:
-    file: ./secrets/mysql_root_password.txt
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
