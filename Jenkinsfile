@@ -90,7 +90,7 @@ pipeline { // Declares this as a Jenkins declarative pipeline
         stage('Deploy') { // Stage 5: pull pushed images and start all 3 containers
             steps {
                 echo 'Deploying application...' // Prints message to Jenkins console log
-                sh "IMAGE_VERSION=${IMAGE_VERSION} docker-compose -f docker-compose.hub.yml up -d" // Passes IMAGE_VERSION into docker-compose so it knows which tags to pull — -f uses our compose file — up -d starts containers in background
+                sh "IMAGE_VERSION=${IMAGE_VERSION} docker-compose -p iot-monitoring -f docker-compose.hub.yml up -d" // -p pins a FIXED project name so the deploy always reuses the same containers/networks/volume regardless of which Jenkins workspace dir (@2/@3) it runs in — IMAGE_VERSION selects the image tags, up -d recreates in place
             }
         }
     }
