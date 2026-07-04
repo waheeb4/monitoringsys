@@ -2,19 +2,11 @@
 
 set -e
 
-if [ -z "$1" ]; then
-    echo "Specify docker hub username please!"
-    echo "./build.sh <username>"
-    exit 1
-fi
+REGISTRY="waheeb4"
 
-REGISTRY="$1"
-
-docker login
-
-DB_IMAGE="$REGISTRY/database-service:v1.5"
-BACKEND_IMAGE="$REGISTRY/backend-service:v1.5"
-FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.5"
+DB_IMAGE="$REGISTRY/database-service:v1.0"
+BACKEND_IMAGE="$REGISTRY/backend-service:v1.0"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.0"
 
 docker stop db-container || true
 docker rm db-container || true
@@ -29,13 +21,13 @@ docker network rm dxc-network || true
 
 docker network create dxc-network
 
-docker build -f IoT-Monitoring-System-backend/database.Dockerfile -t "$DB_IMAGE" IoT-Monitoring-System-backend/ &
+docker pull "$DB_IMAGE" &
 databasepid=$!
 
-docker build -f IoT-Monitoring-System-backend/backend.Dockerfile -t "$BACKEND_IMAGE" IoT-Monitoring-System-backend/ &
+docker pull "$BACKEND_IMAGE" &
 backendpid=$!
 
-docker build -f IoT-Monitoring-System-frontend/frontend.Dockerfile -t "$FRONTEND_IMAGE" IoT-Monitoring-System-frontend/ &
+docker pull "$FRONTEND_IMAGE" &
 frontendpid=$!
 
 wait $databasepid $backendpid $frontendpid
@@ -52,10 +44,10 @@ until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-c
     sleep 1
 done
 
-docker run --name backend-container --network dxc-network -p 8080:8080 -d "$BACKEND_IMAGE"
+docker run --name backend-container --network dxc-network -d "$BACKEND_IMAGE"
 
 retries=0
-until [ "$(curl -s http://localhost:8080/heartbeat)" = "alive" ]; do
+until [ "$(docker run --rm --network dxc-network curlimages/curl curl -s http://backend-container:8080/heartbeat)" = "alive" ]; do
     retries=$((retries + 1))
     if [ "$retries" -ge 60 ]; then
         echo "Backend failed to start!"
@@ -67,7 +59,3 @@ done
 docker run --name frontend-container --network dxc-network -p 4200:8080 -d "$FRONTEND_IMAGE"
 
 echo "Access the web app via: http://localhost:4200"
-
-docker push "$DB_IMAGE"
-docker push "$BACKEND_IMAGE"
-docker push "$FRONTEND_IMAGE"

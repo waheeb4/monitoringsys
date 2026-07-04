@@ -1,0 +1,71 @@
+services:
+  database:
+    image: waheeb4/iot-database:${IMAGE_VERSION}
+    container_name: iot-database
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+    networks:
+      - backend-net
+    restart: unless-stopped
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword123"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  backend:
+    image: waheeb4/iot-backend:${IMAGE_VERSION}
+    platform: linux/amd64
+    container_name: backend-container
+    environment:
+      JWT_EXPIRATION_MS: 86400000
+      SPRING_DATASOURCE_URL: jdbc:mysql://iot-database:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: rootpassword123
+      JWT_SECRET: myjwtsecretkey123456789012345678
+      CORS_ALLOWED_ORIGINS: http://localhost
+      SENSOR_API_KEY: my-sensor-key-12345
+      SIMULATOR_BASE_URL: http://localhost:8080
+    networks:
+      - backend-net
+      - frontend-net
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    user: "1001:1001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null http://127.0.0.1:8080/heartbeat"]
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
+    ports:
+      - "8081:8080"
+
+  frontend:
+    image: waheeb4/iot-frontend:${IMAGE_VERSION}
+    platform: linux/amd64
+    container_name: iot-frontend
+    networks:
+      - frontend-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    user: "101:101"
+    ports:
+      - "80:8080"
+
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

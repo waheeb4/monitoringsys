@@ -1,94 +1,61 @@
-# Project README
+# IoT Monitoring System
 
-## Overview
-
-This project is a full-stack application with a frontend client that communicates with a backend API. Authentication is handled via guarded routes on the client and dedicated auth endpoints on the server. Container builds are automated through shell scripts.
+A full-stack IoT platform for collecting, processing, and analyzing real-time sensor data. Built for industries such as smart homes, industrial automation, agriculture, and environmental monitoring.
 
 ---
 
-## Frontend Pages
+## Features
 
-The frontend exposes three primary routes, each protected by a route guard that controls access based on the user's authentication state.
-
-### `/login` — *Auth Guard*
-
-The login page where existing users authenticate with their credentials. The auth guard ensures that already-authenticated users are redirected away from this page (typically to `/profile`), preventing unnecessary re-authentication.
-
-- **Calls:** `POST /auth/login`
-- **On success:** stores the returned token/session and redirects to `/profile`.
-
-### `/signup` — *Auth Guard*
-
-The registration page for new users. Like `/login`, it is protected by the auth guard so that users who already have an active session are redirected away.
-
-- **Calls:** `POST /auth/signup`
-- **On success:** either auto-logs the user in or redirects to `/login`.
-
-### `/profile` — *Guest Guard*
-
-The authenticated user's profile page, where they can view and update their account details, change their password, and update their profile picture. The guest guard blocks unauthenticated visitors and redirects them to `/login`.
-
-- **Calls:**
-  - `GET /api/users/me` — fetch the current user's profile.
-  - `POST /api/users/password` — change the password.
-  - `POST /api/users/picture` — change  new profile picture.
+- Real-time sensor data collection and live dashboard
+- Threshold-based alerts and email notifications
+- Historical data analysis, trend charts, and filters
+- Remote device control via API commands
+- Automated rule-based actions
+- Data export (CSV / JSON) and scheduled email reports
 
 ---
 
-## Backend Endpoints
+## Prerequisites
 
-| Method   | Endpoint              | Description                                   | Used By           |
-| -------- | --------------------- | --------------------------------------------- | ----------------- |
-| `POST`   | `/auth/signup`        | Register a new user account.                  | `/signup`         |
-| `POST`   | `/auth/login`         | Authenticate and issue a session/JWT.         | `/login`          |
-| `GET`    | `/api/users/me`       | Return the currently authenticated user.      | `/profile`        |
-| `POST`    | `/api/users/password` | Change the current user's password.           | `/profile`        |
-| `PATCH`   | `/api/users/picture`  | Upload/replace the profile picture.           | `/profile`        |
-| `GET`    | `/heartbeat`          | Liveness check — returns `200 OK` if up.      | Monitoring  |
-
-> **Note:** All `/api/*` and `/auth/*` routes (except `/auth/signup`, `/auth/login`, and `/heartbeat`) require a valid auth token in the `Authorization: Bearer <token>` header.
+- Docker
 
 ---
 
-## Scripts
+## Running the App
 
-Two shell scripts at the project root manage the local dev environment and the production image pipeline.
+There are three scripts depending on your goal:
 
-### `./dev.sh` — Build & Run Locally
-
-Builds the development Docker image and starts the stack locally with hot-reload enabled. Use this while developing.
+### Development — build locally, no registry
 
 ```bash
+git clone --recursive <repo-url>
+cd monitoring-system
+git submodule update --init
 ./dev.sh
 ```
 
-What it does:
-
-Builds the local Docker image(s) from the project `Dockerfile`(s).
-
-
-### `./build.sh` — Build & Push to Docker Hub
-
-Builds the production image and pushes it to the configured Docker Hub registry. Use this when cutting a release.
-
-```bash
-./build.sh
-```
-
-What it does:
-
-1. Builds the production image with the appropriate tag.
-2. Authenticates against Docker Hub (assumes you've already run `docker login`).
-3. Pushes the tagged image to the registry so it can be pulled by deployment targets.
+Builds all three images locally with `:dev` tags and starts the containers. The frontend is at `http://localhost:4200` and the backend is also directly accessible at `http://localhost:8080`.
 
 ---
 
-## Typical Workflow
+### Build & Publish — build locally and push to Docker Hub
 
 ```bash
-# 1. Develop locally
-./dev.sh
-
-# 2. When ready to ship, build & push the production image
-./build.sh
+./build.sh <your-dockerhub-username>
 ```
+
+Builds all three images, starts and health-checks the containers, then pushes the images to your Docker Hub registry.
+
+---
+
+### Deploy — pull pre-built images and run
+
+```bash
+./deploy.sh
+```
+
+Pulls the latest pre-built images from Docker Hub and starts the containers — no build step required. The app will be at `http://localhost:4200`.
+
+---
+
+> **Note:** On first run, MySQL initializes the schema automatically. On subsequent runs the data volume is reused. To reset the database: `docker volume rm db-data` before running the script.
