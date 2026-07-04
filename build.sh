@@ -1,0 +1,59 @@
+#!/usr/bin/bash
+
+set -e
+
+if [ -z "$1" ]; then
+    echo "Specify docker hub username please!"
+    echo "./build.sh <username>"
+    exit 1
+fi
+
+REGISTRY="$1"
+
+docker login
+
+DB_IMAGE="$REGISTRY/database-service:v1.5"
+BACKEND_IMAGE="$REGISTRY/backend-service:v1.5"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.5"
+
+docker stop db-container || true
+docker rm db-container || true
+
+docker stop backend-container || true
+docker rm backend-container || true
+
+docker stop frontend-container || true
+docker rm frontend-container || true
+
+docker network rm dxc-network || true
+
+docker network create dxc-network
+
+docker build -f IoT-Monitoring-System-backend/database.Dockerfile -t "$DB_IMAGE" IoT-Monitoring-System-backend/ &
+databasepid=$!
+
+docker build -f IoT-Monitoring-System-backend/backend.Dockerfile -t "$BACKEND_IMAGE" IoT-Monitoring-System-backend/ &
+backendpid=$!
+
+docker build -f IoT-Monitoring-System-frontend/frontend.Dockerfile -t "$FRONTEND_IMAGE" IoT-Monitoring-System-frontend/ &
+frontendpid=$!
+
+wait $databasepid $backendpid $frontendpid
+
+docker push "$DB_IMAGE"
+docker push "$BACKEND_IMAGE"
+docker push "$FRONTEND_IMAGE"
+
+docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d "$DB_IMAGE"
+
+until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-container -uroot -pmy-pwd --silent 2>/dev/null; do
+    sleep 1
+done
+
+docker run --name backend-container --network dxc-network -p 8080:8080 -d "$BACKEND_IMAGE"
+
+until [ "$(curl -s http://localhost:8080/heartbeat)" = "alive" ]; do                                                         
+      sleep 1                                                                                                                 
+done
+
+docker run --name frontend-container --network dxc-network -p 4200:8080 -d "$FRONTEND_IMAGE"
