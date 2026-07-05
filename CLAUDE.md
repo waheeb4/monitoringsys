@@ -8,9 +8,11 @@ IoT monitoring system with three components: Angular frontend, Spring Boot backe
 
 ## Running the System
 
+See [RUNNING.md](RUNNING.md) for full step-by-step instructions for both Docker Compose and Kubernetes.
+
 ```bash
-# Build and run all containers (tear down first, then rebuild)
-./build.sh
+# Raw Docker (no Compose) — builds, runs, and pushes images to Docker Hub
+./build.sh <dockerhub-username>
 ```
 
 The script tears down existing containers/network, builds all three images in parallel, starts the DB, polls until MySQL accepts connections, starts the backend and polls until `/heartbeat` responds, then starts the frontend.
@@ -18,7 +20,7 @@ The script tears down existing containers/network, builds all three images in pa
 ## Frontend Dev (Angular)
 
 ```bash
-cd DXC-IoT-Monitoring-System-frontend
+cd IoT-Monitoring-System-frontend
 npm install
 npm start        # ng serve — dev server at http://localhost:4200
 npm test         # ng test (uses vitest via @angular/build:unit-test, not Karma)
@@ -32,7 +34,7 @@ Angular 21 with SSR (`@angular/ssr` + Express). In dev (`npm start`), `proxy.con
 Requires MySQL running and reachable at `db-container:3306` (or edit `application.properties`):
 
 ```bash
-cd DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend
+cd IoT-Monitoring-System-backend/IoT-Monitoring-System-backend
 ./mvnw spring-boot:run
 
 # Or skip tests and package
@@ -49,15 +51,16 @@ cd DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend
 
 ## Nginx as API Proxy (Critical)
 
-The frontend container runs nginx on port 8080 (mapped to host `4200`). `nginx.conf` proxies backend routes so the Angular app never needs CORS:
+The frontend container runs nginx on port 8080 (mapped to host `80` in Compose, `30080` NodePort in K8s). Nginx proxies backend routes so the Angular app never needs CORS:
 
 | Client request | Proxied to |
 |---|---|
-| `localhost:4200/auth/*` | `backend-container:8080/auth/*` |
-| `localhost:4200/api/users/*` | `backend-container:8080/api/users/*` |
-| `localhost:4200/heartbeat` | `backend-container:8080/heartbeat` |
+| `/auth/*` | `<backend>:<port>/auth/*` |
+| `/api/*` | `<backend>:<port>/api/*` |
+| `/heartbeat` | `<backend>:<port>/heartbeat` |
+| `/api/alerts/stream` | same, but with `proxy_buffering off` for SSE |
 
-Angular makes calls to `localhost:4200/...` in the browser; nginx resolves `backend-container` via Docker's internal DNS (`127.0.0.11`). This is the only supported integration path — do not configure CORS on the backend for Docker use.
+Angular makes calls to the same host/port it was loaded from; nginx resolves the backend internally. Do not configure CORS on the backend — nginx strips the `Origin` header before proxying.
 
 ## Key Conventions
 
@@ -65,7 +68,7 @@ Angular makes calls to `localhost:4200/...` in the browser; nginx resolves `back
 - MySQL data persisted via volume at `/var/lib/mysql`
 - `initdb.d/` only runs when the volume is empty — run `docker volume rm db-data` to force schema re-initialization
 - Backend connects to DB at `db-container:3306`, database name `monitoring`, credentials `root/my-pwd`
-- `application.properties` must exist at `DXC-IoT-Monitoring-System-backend/DXC-IoT-Monitoring-System-backend/src/main/resources/application.properties` — this is what gets packaged into the JAR. There is also a duplicate at the submodule root (`DXC-IoT-Monitoring-System-backend/src/main/resources/`) — only the nested path matters
+- `application.properties` must exist at `IoT-Monitoring-System-backend/IoT-Monitoring-System-backend/src/main/resources/application.properties` — this is what gets packaged into the JAR. There is also a duplicate at the submodule root (`IoT-Monitoring-System-backend/src/main/resources/`) — only the nested path matters
 
 ## Submodule Structure
 
@@ -76,11 +79,12 @@ git submodule update --init
 
 Both submodules must be committed and pushed to their own remotes before updating the pointer in this repo:
 
-- `DXC-IoT-Monitoring-System-backend/` — backend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-backend.git`)
-  - `DXC-IoT-Monitoring-System-backend/` — nested: the actual Spring Boot Maven project (`pom.xml` + Java source)
+- `IoT-Monitoring-System-backend/` — backend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-backend.git`)
+  - `IoT-Monitoring-System-backend/` — nested: the actual Spring Boot Maven project (`pom.xml` + Java source)
   - `backend.Dockerfile`, `database.Dockerfile`, `schema.sql` — live at the submodule root
-- `DXC-IoT-Monitoring-System-frontend/` — frontend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-frontend.git`)
-  - `frontend.Dockerfile`, `nginx.conf` — live at the submodule root
+- `IoT-Monitoring-System-frontend/` — frontend submodule (SSH: `git@github.com:nabil0412/DXC-IoT-Monitoring-System-frontend.git`)
+  - `frontend.Dockerfile`, `nginx.conf` (K8s config, baked into image), `nginx.docker.conf` — live at the submodule root
+  - Note: `nginx.docker.conf` in the **monorepo root** overrides the above when using Docker Compose (mounted as a volume)
 
 ## Frontend Architecture
 

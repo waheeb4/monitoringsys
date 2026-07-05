@@ -14,7 +14,7 @@ docker login
 
 DB_IMAGE="$REGISTRY/database-service:v1.5"
 BACKEND_IMAGE="$REGISTRY/backend-service:v1.5"
-FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.6"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.7"
 
 docker stop db-container || true
 docker rm db-container || true
