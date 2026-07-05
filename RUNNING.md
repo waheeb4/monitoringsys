@@ -121,24 +121,18 @@ minikube delete
 
 ### Rebuild and redeploy after a code change
 
-Kubernetes pulls images from Docker Hub, so you must build, tag, push, then roll out.
+Run `build.sh` — it builds all three images, pushes them to Docker Hub, then roll out the updated deployment in Kubernetes.
 
 ```bash
-# 1. Build the new image
-docker build -f IoT-Monitoring-System-frontend/frontend.Dockerfile \
-  -t <username>/frontend-service:vX.X IoT-Monitoring-System-frontend/
+# 1. Build and push all images
+./build.sh <dockerhub-username>
 
-# 2. Push to Docker Hub
-docker push <username>/frontend-service:vX.X
-
-# 3. Update the tag in k8s/frontend-deployment.yaml, then apply
+# 2. Update the image tag in the relevant k8s/*-deployment.yaml, then apply
 kubectl apply -f k8s/frontend-deployment.yaml
 
-# 4. If the tag is the same as before, force a fresh rollout
+# 3. If the tag is the same as before, force a fresh rollout
 kubectl rollout restart deployment/frontend-deployment
 ```
-
-Same steps apply for `backend-service` and `database-service` with their respective Dockerfiles and deployment YAMLs.
 
 ### Check pod status
 
