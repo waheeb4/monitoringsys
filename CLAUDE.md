@@ -12,6 +12,7 @@ See [RUNNING.md](RUNNING.md) for full step-by-step instructions for both Docker 
 
 ```bash
 # Raw Docker (no Compose) — builds, runs, and pushes images to Docker Hub
+# Must be run inside WSL (not PowerShell or CMD)
 ./build.sh <dockerhub-username>
 ```
 

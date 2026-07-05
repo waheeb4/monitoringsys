@@ -124,6 +124,7 @@ minikube delete
 Run `build.sh` — it builds all three images, pushes them to Docker Hub, then roll out the updated deployment in Kubernetes.
 
 ```bash
+# Must be run inside WSL (not PowerShell or CMD)
 # 1. Build and push all images
 ./build.sh <dockerhub-username>
 
