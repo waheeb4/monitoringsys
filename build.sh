@@ -14,7 +14,7 @@ docker login
 
 DB_IMAGE="$REGISTRY/database-service:v1.5"
 BACKEND_IMAGE="$REGISTRY/backend-service:v1.5"
-FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.5"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.6"
 
 docker stop db-container || true
 docker rm db-container || true
@@ -40,7 +40,7 @@ frontendpid=$!
 
 wait $databasepid $backendpid $frontendpid
 
-docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d "$DB_IMAGE"
+docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -e MYSQL_ROOT_PASSWORD=my-pwd -d "$DB_IMAGE"
 
 retries=0
 until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-container -uroot -pmy-pwd --silent 2>/dev/null; do
@@ -52,7 +52,7 @@ until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-c
     sleep 1
 done
 
-docker run --name backend-container --network dxc-network -p 8080:8080 -d "$BACKEND_IMAGE"
+docker run --name backend-container --network dxc-network -p 8080:8080 -e SPRING_DATASOURCE_URL=jdbc:mysql://db-container:3306/monitoring -d "$BACKEND_IMAGE"
 
 retries=0
 until [ "$(curl -s http://localhost:8080/heartbeat)" = "alive" ]; do

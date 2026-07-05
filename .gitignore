@@ -4,3 +4,4 @@ JAVA.md
 
 # secrets
 secrets/
+k8s/database-secret.yaml
