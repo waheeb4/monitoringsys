@@ -1,4 +1,6 @@
-# Minikube Setup Commands
+# Minikube Setup Commands (Windows 10, Hyper-V driver)
+
+> See [minikube-setup-linux.md](minikube-setup-linux.md) for the WSL/Linux (docker driver) variant.
 
 ## 1. Install Minikube
 ```powershell
