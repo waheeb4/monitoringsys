@@ -82,6 +82,8 @@ Use this for a production-like deployment where pods, replicas, and services are
 minikube start --driver=hyperv
 ```
 
+> **If you're on WSL2 with the `docker` driver**, use `minikube start --driver=docker --ports=30080:30080` instead — see [minikube-setup-linux.md](minikube-setup-linux.md) for why.
+
 Create the database secret (this file is gitignored — you must create it manually):
 
 ```bash
@@ -108,6 +110,8 @@ Get the URL to open in your browser:
 minikube service frontend-service --url
 # e.g. http://172.18.16.112:30080
 ```
+
+> **If you're on WSL2 with the `docker` driver** (see [minikube-setup-linux.md](minikube-setup-linux.md)), the command above is unreliable — instead access the app directly at `http://localhost:30080`, which works automatically once the cluster was started with `--ports=30080:30080` (see that doc's "Access the app" section for why).
 
 ### Stop / tear down
 
@@ -161,5 +165,5 @@ The frontend image has `nginx.conf` baked in at build time (no volume override).
 | Backend hostname | `backend` (Compose service name) | `backend-service.default.svc.cluster.local` |
 | DNS resolver | `127.0.0.11` (Docker internal) | `10.96.0.10` (kube-dns) |
 | Backend port | `8080` | `80` (ClusterIP service) |
-| Frontend URL | http://localhost:80 | `minikube service frontend-service --url` |
+| Frontend URL | http://localhost:80 | `http://localhost:30080` (WSL2 docker driver, started with `--ports=30080:30080`) or `minikube service frontend-service --url` (other drivers) |
 | Postman base URL | http://localhost:8080 | not directly accessible (ClusterIP) |
