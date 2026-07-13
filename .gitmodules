@@ -5,3 +5,7 @@
 [submodule "IoT-Monitoring-System-frontend"]
 	path = IoT-Monitoring-System-frontend
 	url = git@github.com:nabil0412/IoT-Monitoring-System-frontend.git
+[submodule "selenium"]
+	path = selenium
+	url = git@github.com:lailakariem/Frontend-Testing-With-Selenium-.git
+	branch = main
