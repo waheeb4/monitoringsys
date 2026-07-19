@@ -1,0 +1,143 @@
+##############################################################
+# docker-compose.yml — Sprint2-Environment/
+##############################################################
+
+services:
+
+  # ──────────────────────────────────────────
+  # MySQL Database
+  # ──────────────────────────────────────────
+  database:
+    build:
+      context: ./IoT-Monitoring-System-backend
+      dockerfile: database.Dockerfile
+    container_name: iot-database
+
+    environment:
+      MYSQL_DATABASE: monitoring
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+
+    secrets:
+      - mysql_root_password
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    networks:
+      - backend-net
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: >
+        mysqladmin ping -h localhost -u root
+        --password="$$(cat /run/secrets/mysql_root_password)" --silent
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  # ──────────────────────────────────────────
+  # Spring Boot Backend
+  # ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./IoT-Monitoring-System-backend
+      dockerfile: backend.Dockerfile
+    container_name: backend-container
+
+    # Use an entrypoint wrapper to read the secret file and export it
+    # as SPRING_DATASOURCE_PASSWORD before Spring Boot starts
+    entrypoint: ["/bin/sh", "-c",
+      "export SPRING_DATASOURCE_PASSWORD=$(cat /run/secrets/mysql_root_password) && exec java -Djava.security.egd=file:/dev/./urandom -jar app.jar"
+    ]
+
+    environment:
+      SIMULATOR_BASE_URL: http://localhost:8080
+      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      JWT_SECRET: kmagGAc2ml20bTa78jT1qrwnp6fR2BVCT4qJnd5LoyH
+      JWT_EXPIRATION_MS: 86400000
+
+
+
+    secrets:
+      - mysql_root_password
+
+    volumes:
+      - backend_data:/app/data
+
+    networks:
+      - backend-net
+      - frontend-net
+
+    depends_on:
+      database:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    user: "1001:1001"
+
+    healthcheck:
+      # Accept any HTTP response (1xx-5xx) — proves Spring Boot is UP
+      # Spring Security returns 401 on / which is correct behaviour, not a failure
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8080/ | grep -qE '^[1-9][0-9][0-9]$'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+    ports:
+      - "8080:8080"
+
+  # ──────────────────────────────────────────
+  # Angular Frontend (served by nginx)
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./IoT-Monitoring-System-frontend
+      dockerfile: frontend.Dockerfile
+    container_name: iot-frontend
+
+    networks:
+      - frontend-net
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    user: "101:101"
+
+
+
+    ports:
+      - "80:8080"
+
+##############################################################
+# Networks
+##############################################################
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge
+
+##############################################################
+# Volumes
+##############################################################
+volumes:
+  mysql_data:
+    driver: local
+  backend_data:
+    driver: local
+
+##############################################################
+# Secrets
+##############################################################
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password.txt
