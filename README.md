@@ -14,7 +14,19 @@ A full-stack IoT platform for collecting, processing, and analyzing real-time se
 - Data export (CSV / JSON) and scheduled email reports
 
 ---
+## CI/CD Pipeline & Sanity Validation
 
+As part of the continuous integration process, this project includes an automated Sanity Pack validation stage that executes before any build or deployment processes.
+
+**Validation Details:**
+- **Scope:** Backend API sanity checks.
+- **Tooling:** Postman collections executed via Newman CLI.
+- **Pipeline Stage:** `Sanity Validation`
+- **Execution Steps:** 
+  1. The pipeline runner installs `newman` via npm.
+  2. The pipeline executes: `newman run "Sanity-Pack/Sanity Check.postman_collection.json" -e "Sanity-Pack/IoT monitoring system - dev.postman_environment.json"`
+- **Failure Condition:** If any Postman assertion fails, Newman exits with a non-zero status code, actively failing the pipeline and preventing subsequent build/deployment stages.
+---
 ## Prerequisites
 
 - Docker
@@ -45,6 +57,8 @@ Builds all three images locally with `:dev` tags and starts the containers. The 
 ```
 
 Builds all three images, starts and health-checks the containers, then pushes the images to your Docker Hub registry.
+
+---
 
 ---
 
