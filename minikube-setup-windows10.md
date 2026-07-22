@@ -1,4 +1,6 @@
-# Minikube Setup Commands
+# Minikube Setup Commands (Windows 10, Hyper-V driver)
+
+> See [minikube-setup-linux.md](minikube-setup-linux.md) for the WSL/Linux (docker driver) variant.
 
 ## 1. Install Minikube
 ```powershell
@@ -36,14 +38,32 @@ minikube kubectl -- get nodes
 ```bash
 cd /mnt/d/DXC/Code-fresh && ./build.sh nabil0412
 ```
-Images pushed (latest: v1.4):
-- `nabil0412/database-service`
-- `nabil0412/backend-service`
-- `nabil0412/frontend-service`
+Images pushed (latest: v1.6):
+- `nabil0412/database-service:v1.5`
+- `nabil0412/backend-service:v1.5`
+- `nabil0412/frontend-service:v1.6`
 
 ## 7. Apply Kubernetes yamls
+
+> ⚠️ `k8s/database-secret.yaml` is gitignored and must be created manually before deploying.
+> It contains the MySQL root password — never commit it.
+
+Apply in this order:
 ```powershell
-cd "d:\DXC\Code-fresh"; minikube kubectl -- apply -f k8s/
+minikube kubectl -- apply -f k8s/database-secret.yaml
+minikube kubectl -- apply -f k8s/backend-configmap.yaml
+minikube kubectl -- apply -f k8s/database-pvc.yaml
+minikube kubectl -- apply -f k8s/database-deployment.yaml
+minikube kubectl -- apply -f k8s/database-service.yaml
+minikube kubectl -- apply -f k8s/backend-deployment.yaml
+minikube kubectl -- apply -f k8s/backend-service.yaml
+minikube kubectl -- apply -f k8s/frontend-deployment.yaml
+minikube kubectl -- apply -f k8s/frontend-service.yaml
+```
+
+Or apply everything at once (Secret must already exist):
+```powershell
+minikube kubectl -- apply -f k8s/
 ```
 
 ## 8. Check all pods are running
@@ -52,18 +72,19 @@ minikube kubectl -- get pods
 ```
 Expected output: all 3 pods with status `Running`
 
-## 9. Get frontend URL
+## 9. Get Minikube node IP
 ```powershell
-minikube service frontend-service --url
+minikube ip
 ```
+Access the app at `http://<minikube-ip>:30080`
 
 ## 10. Redeploying after a code change
-1. Bump image tag in `build.sh` (e.g. v1.4 → v1.5)
+1. Bump the relevant image tag in `build.sh`
 2. Rebuild and push in WSL:
 ```bash
 cd /mnt/d/DXC/Code-fresh && ./build.sh nabil0412
 ```
-3. Update image tag in the relevant `k8s/*.yaml` file
+3. Update the image tag in the relevant `k8s/*-deployment.yaml`
 4. Apply in PowerShell:
 ```powershell
 minikube kubectl -- apply -f k8s/<changed-deployment>.yaml

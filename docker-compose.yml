@@ -101,6 +101,9 @@ services:
       dockerfile: frontend.Dockerfile
     container_name: iot-frontend
 
+    volumes:
+      - ./nginx.docker.conf:/etc/nginx/nginx.conf:ro
+
     networks:
       - frontend-net
 
@@ -111,8 +114,6 @@ services:
     restart: unless-stopped
 
     user: "101:101"
-
-
 
     ports:
       - "80:8080"
