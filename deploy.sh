@@ -4,7 +4,9 @@ set -e
 
 # Publish the images that dev.sh has already built and tested locally.
 REGISTRY="waheeb4"
-IMAGE_TAG="${1:-v1.8}"
+# Default to the mutable tag while validating the initial OpenShift deployment.
+# An explicit version can still be supplied: ./deploy.sh v1.9
+IMAGE_TAG="${1:-latest}"
 
 LOCAL_DB_IMAGE="database-service:dev"
 LOCAL_BACKEND_IMAGE="backend-service:dev"
