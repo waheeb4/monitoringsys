@@ -7,7 +7,7 @@ services:
   # ──────────────────────────────────────────
   # MySQL Database
   # ──────────────────────────────────────────
-  database:
+  database-service:
     image: database-service:dev
     build:
       context: ./IoT-Monitoring-System-backend
@@ -56,7 +56,7 @@ services:
 
     environment:
       SIMULATOR_BASE_URL: http://localhost:8080
-      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://database-service:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: kmagGAc2ml20bTa78jT1qrwnp6fR2BVCT4qJnd5LoyH
@@ -75,7 +75,7 @@ services:
       - frontend-net
 
     depends_on:
-      database:
+      database-service:
         condition: service_healthy
 
     restart: unless-stopped
