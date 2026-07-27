@@ -8,10 +8,11 @@ services:
   # MySQL Database
   # ──────────────────────────────────────────
   database:
+    image: database-service:dev
     build:
       context: ./IoT-Monitoring-System-backend
       dockerfile: database.Dockerfile
-    container_name: iot-database
+    container_name: database-container
 
     environment:
       MYSQL_DATABASE: monitoring
@@ -41,6 +42,7 @@ services:
   # Spring Boot Backend
   # ──────────────────────────────────────────
   backend:
+    image: backend-service:dev
     build:
       context: ./IoT-Monitoring-System-backend
       dockerfile: backend.Dockerfile
@@ -96,13 +98,17 @@ services:
   # Angular Frontend (served by nginx)
   # ──────────────────────────────────────────
   frontend:
+    image: frontend-service:dev
     build:
       context: ./IoT-Monitoring-System-frontend
       dockerfile: frontend.Dockerfile
-    container_name: iot-frontend
+    container_name: frontend-container
 
     volumes:
-      - ./nginx.docker.conf:/etc/nginx/nginx.conf:ro
+      - type: bind
+        source: ./IoT-Monitoring-System-frontend/nginx/nginx.docker.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
 
     networks:
       - frontend-net

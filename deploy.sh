@@ -2,60 +2,34 @@
 
 set -e
 
+# Publish the images that dev.sh has already built and tested locally.
 REGISTRY="waheeb4"
+IMAGE_TAG="${1:-v1.8}"
 
-DB_IMAGE="$REGISTRY/database-service:v1.0"
-BACKEND_IMAGE="$REGISTRY/backend-service:v1.0"
-FRONTEND_IMAGE="$REGISTRY/frontend-service:v1.0"
+LOCAL_DB_IMAGE="database-service:dev"
+LOCAL_BACKEND_IMAGE="backend-service:dev"
+LOCAL_FRONTEND_IMAGE="frontend-service:dev"
 
-docker stop db-container || true
-docker rm db-container || true
+DB_IMAGE="$REGISTRY/database-service:$IMAGE_TAG"
+BACKEND_IMAGE="$REGISTRY/backend-service:$IMAGE_TAG"
+FRONTEND_IMAGE="$REGISTRY/frontend-service:$IMAGE_TAG"
 
-docker stop backend-container || true
-docker rm backend-container || true
-
-docker stop frontend-container || true
-docker rm frontend-container || true
-
-docker network rm dxc-network || true
-
-docker network create dxc-network
-
-docker pull "$DB_IMAGE" &
-databasepid=$!
-
-docker pull "$BACKEND_IMAGE" &
-backendpid=$!
-
-docker pull "$FRONTEND_IMAGE" &
-frontendpid=$!
-
-wait $databasepid $backendpid $frontendpid
-
-docker run --name db-container --network dxc-network --mount type=volume,src=db-data,dst=/var/lib/mysql -d "$DB_IMAGE"
-
-retries=0
-until docker run --rm --network dxc-network mysql:latest mysqladmin ping -h db-container -uroot -pmy-pwd --silent 2>/dev/null; do
-    retries=$((retries + 1))
-    if [ "$retries" -ge 60 ]; then
-        echo "DB failed to start!"
+for image in "$LOCAL_DB_IMAGE" "$LOCAL_BACKEND_IMAGE" "$LOCAL_FRONTEND_IMAGE"; do
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        echo "Missing local image: $image"
+        echo "Run ./dev.sh successfully before publishing."
         exit 1
     fi
-    sleep 1
 done
 
-docker run --name backend-container --network dxc-network -d "$BACKEND_IMAGE"
+docker login
 
-retries=0
-until [ "$(docker run --rm --network dxc-network curlimages/curl curl -s http://backend-container:8080/heartbeat)" = "alive" ]; do
-    retries=$((retries + 1))
-    if [ "$retries" -ge 60 ]; then
-        echo "Backend failed to start!"
-        exit 1
-    fi
-    sleep 1
-done
+docker tag "$LOCAL_DB_IMAGE" "$DB_IMAGE"
+docker tag "$LOCAL_BACKEND_IMAGE" "$BACKEND_IMAGE"
+docker tag "$LOCAL_FRONTEND_IMAGE" "$FRONTEND_IMAGE"
 
-docker run --name frontend-container --network dxc-network -p 4200:8080 -d "$FRONTEND_IMAGE"
+docker push "$DB_IMAGE"
+docker push "$BACKEND_IMAGE"
+docker push "$FRONTEND_IMAGE"
 
-echo "Access the web app via: http://localhost:4200"
+echo "Published Docker Hub images with tag: $IMAGE_TAG"
