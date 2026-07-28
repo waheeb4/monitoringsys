@@ -13,15 +13,6 @@ pipeline {
             steps {
                 checkout scm
 
-                // Use the exact backend/frontend commits recorded by this repository.
-                // HTTPS avoids requiring an extra GitHub SSH credential for public submodules.
-                sh '''
-                    git config submodule.IoT-Monitoring-System-backend.url https://github.com/nabil0412/IoT-Monitoring-System-backend.git
-                    git config submodule.IoT-Monitoring-System-frontend.url https://github.com/nabil0412/IoT-Monitoring-System-frontend.git
-                    git submodule update --init --recursive \
-                        IoT-Monitoring-System-backend \
-                        IoT-Monitoring-System-frontend
-                '''
             }
         }
 
