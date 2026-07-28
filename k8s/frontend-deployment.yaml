@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: nabil0412/frontend-service:v1.7
+          image: waheeb4/frontend-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

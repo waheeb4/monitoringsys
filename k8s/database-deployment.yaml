@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: database
-          image: nabil0412/database-service:v1.5
+          image: waheeb4/database-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3306

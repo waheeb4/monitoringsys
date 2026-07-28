@@ -14,7 +14,15 @@ spec:
     spec:
       containers:
         - name: backend
-          image: nabil0412/backend-service:v1.5
+          image: waheeb4/backend-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://database-service:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-secret
+                  key: MYSQL_ROOT_PASSWORD
