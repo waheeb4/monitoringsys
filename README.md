@@ -154,5 +154,3 @@ See [custom-jenkins/README.md](custom-jenkins/README.md) for setup details.
 
 - [Backend](IoT-Monitoring-System-backend/README.md)
 - [Frontend](IoT-Monitoring-System-frontend/README.md)
-
-`deploy.sh` and `docker-compose.hub.yml` are legacy manual deployment files.
