@@ -1,75 +1,158 @@
 # IoT Monitoring System
 
-A full-stack IoT platform for collecting, processing, and analyzing real-time sensor data. Built for industries such as smart homes, industrial automation, agriculture, and environmental monitoring.
+Full-stack IoT monitoring application with an Angular frontend, Spring Boot
+backend, and MySQL database.
 
----
+## Project Structure
 
-## Features
+| Path | Purpose |
+|---|---|
+| `IoT-Monitoring-System-frontend/` | Angular frontend |
+| `IoT-Monitoring-System-backend/` | Spring Boot backend and database image |
+| `selenium/` | Selenium/TestNG frontend tests |
+| `Sanity-Pack/` | Postman API sanity tests |
+| `custom-jenkins/` | Local Jenkins controller |
+| `k8s/` | Kubernetes and OpenShift deployment |
 
-- Real-time sensor data collection and live dashboard
-- Threshold-based alerts and email notifications
-- Historical data analysis, trend charts, and filters
-- Remote device control via API commands
-- Automated rule-based actions
-- Data export (CSV / JSON) and scheduled email reports
+The frontend, backend, and Selenium projects are Git submodules.
 
----
-## CI/CD Pipeline & Sanity Validation
+## Requirements
 
-As part of the continuous integration process, this project includes an automated Sanity Pack validation stage that executes before any build or deployment processes.
-
-**Validation Details:**
-- **Scope:** Backend API sanity checks.
-- **Tooling:** Postman collections executed via Newman CLI.
-- **Pipeline Stage:** `Sanity Validation`
-- **Execution Steps:** 
-  1. The pipeline runner installs `newman` via npm.
-  2. The pipeline executes: `newman run "Sanity-Pack/Sanity Check.postman_collection.json" -e "Sanity-Pack/IoT monitoring system - dev.postman_environment.json"`
-- **Failure Condition:** If any Postman assertion fails, Newman exits with a non-zero status code, actively failing the pipeline and preventing subsequent build/deployment stages.
----
-## Prerequisites
-
+- Git
 - Docker
+- Docker Compose v2
 
----
-
-## Running the App
-
-There are three scripts depending on your goal:
-
-### Development — build locally, no registry
+## Clone
 
 ```bash
-git clone --recursive <repo-url>
+git clone --recurse-submodules git@github.com:waheeb4/monitoring-system.git
 cd monitoring-system
-git submodule update --init
-./dev.sh
 ```
 
-Builds all three images locally with `:dev` tags and starts the containers. The frontend is at `http://localhost:4200` and the backend is also directly accessible at `http://localhost:8080`.
-
----
-
-### Build & Publish — build locally and push to Docker Hub
+For an existing clone:
 
 ```bash
-./build.sh <your-dockerhub-username>
+git submodule update --init --recursive
 ```
 
-Builds all three images, starts and health-checks the containers, then pushes the images to your Docker Hub registry.
+## Run Locally
 
----
-
----
-
-### Deploy — pull pre-built images and run
+Create the database password file:
 
 ```bash
-./deploy.sh
+install -d -m 0700 secrets
+printf '%s' 'your-local-password' > secrets/mysql_root_password.txt
+chmod 0644 secrets/mysql_root_password.txt
 ```
 
-Pulls the latest pre-built images from Docker Hub and starts the containers — no build step required. The app will be at `http://localhost:4200`.
+Start the application:
 
----
+```bash
+docker compose up --build
+```
 
-> **Note:** On first run, MySQL initializes the schema automatically. On subsequent runs the data volume is reused. To reset the database: `docker volume rm db-data` before running the script.
+Run it in the background:
+
+```bash
+docker compose up --build --detach --wait
+```
+
+| Service | Address |
+|---|---|
+| Frontend | <http://localhost> |
+| Backend | <http://localhost:8080> |
+| Health check | <http://localhost:8080/heartbeat> |
+
+Stop the application:
+
+```bash
+docker compose down
+```
+
+Reset the application and its data:
+
+```bash
+docker compose down --volumes
+```
+
+## Tests
+
+### Backend
+
+```bash
+cd IoT-Monitoring-System-backend
+./mvnw test
+```
+
+### Frontend
+
+Start the application, then select a Selenium TestNG suite:
+
+```bash
+cd selenium
+mvn test -Dsuite=testng-sanity.xml
+```
+
+Available suites:
+
+- `testng.xml`
+- `testng-sanity.xml`
+- `testng-sprint1.xml`
+- `testng-sprint2.xml`
+- `testng-sprint3.xml`
+- `testng-sprint4.xml`
+
+### API Sanity Pack
+
+With the backend running:
+
+```bash
+newman run "Sanity-Pack/Sanity Check.postman_collection.json" \
+  --environment "Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
+  --env-var baseUrl=http://localhost:8080
+```
+
+## Jenkins
+
+Start the local Jenkins controller:
+
+```bash
+docker compose -f custom-jenkins/docker-compose.yml up --build --detach
+```
+
+Open <http://localhost:8088>.
+
+The pipeline:
+
+1. Builds the three Docker images.
+2. Starts MySQL and the backend.
+3. Runs the API sanity pack.
+4. Pushes versioned images to Docker Hub.
+5. Deploys them to OpenShift.
+6. Cleans up the local CI stack.
+
+Required Jenkins configuration:
+
+| ID or variable | Type |
+|---|---|
+| `github` | SCM credential |
+| `mysql-root-password` | Secret text |
+| `dockerhub` | Username and token |
+| `openshift` | Secret text token |
+| `OPENSHIFT_SERVER` | Global environment variable |
+
+See [custom-jenkins/README.md](custom-jenkins/README.md) for setup details.
+
+## Deployment Documentation
+
+- [Kubernetes and OpenShift](k8s/README.md)
+- [Minikube overview](k8s/minikube/README.md)
+- [Minikube on WSL/Linux](k8s/minikube/minikube-setup-linux.md)
+- [Minikube on Windows 10](k8s/minikube/minikube-setup-windows10.md)
+
+## Component Documentation
+
+- [Backend](IoT-Monitoring-System-backend/README.md)
+- [Frontend](IoT-Monitoring-System-frontend/README.md)
+
+`deploy.sh` and `docker-compose.hub.yml` are legacy manual deployment files.
