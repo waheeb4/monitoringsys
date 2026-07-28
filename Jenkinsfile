@@ -1,6 +1,7 @@
 pipeline {
     agent {
         node {
+            label 'built-in'
             // This path is bind-mounted into Jenkins at the same absolute
             // location on the Docker host. Do not point this at the root
             // working tree; it is an ignored, dedicated CI checkout.
