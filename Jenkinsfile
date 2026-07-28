@@ -17,13 +17,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-
-            }
-        }
-
         stage('Build Images') {
             steps {
                 sh 'docker compose -p "$COMPOSE_PROJECT" build'
