@@ -1,5 +1,12 @@
 pipeline {
-    agent any
+    agent {
+        node {
+            // This path is bind-mounted into Jenkins at the same absolute
+            // location on the Docker host. Do not point this at the root
+            // working tree; it is an ignored, dedicated CI checkout.
+            customWorkspace '/home/waheeb/Desktop/dev/monitoring-system/custom-jenkins/jenkins-workspace/monitoring-system'
+        }
+    }
 
     environment {
         DOCKER_HUB_USERNAME = 'waheeb4'
@@ -19,6 +26,19 @@ pipeline {
         stage('Build Images') {
             steps {
                 sh 'docker compose -p "$COMPOSE_PROJECT" build'
+            }
+        }
+
+        stage('Prepare CI Secret') {
+            steps {
+                withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
+                    sh '''
+                        set -eu
+                        umask 077
+                        mkdir -p secrets
+                        printf '%s' "$MYSQL_ROOT_PASSWORD" > secrets/mysql_root_password.txt
+                    '''
+                }
             }
         }
 
@@ -100,6 +120,7 @@ pipeline {
             sh '''
                 docker network disconnect "${COMPOSE_PROJECT}_backend-net" monitoring-jenkins >/dev/null 2>&1 || true
                 docker compose -p "$COMPOSE_PROJECT" down --volumes --remove-orphans || true
+                rm -f secrets/mysql_root_password.txt
             '''
         }
         success {
