@@ -55,25 +55,19 @@ pipeline {
             }
         }
 
-        stage('Tag Images') {
-            steps {
-                sh '''
-                    docker image tag database-service:dev "$DOCKER_HUB_USERNAME/database-service:$IMAGE_VERSION"
-                    docker image tag backend-service:dev "$DOCKER_HUB_USERNAME/backend-service:$IMAGE_VERSION"
-                    docker image tag frontend-service:dev "$DOCKER_HUB_USERNAME/frontend-service:$IMAGE_VERSION"
-                '''
-            }
-        }
-
-        stage('Push Images') {
+        stage('Publish Images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_HUB_USER', passwordVariable: 'DOCKER_HUB_TOKEN')]) {
                     sh '''
                         set +x
                         printf '%s' "$DOCKER_HUB_TOKEN" | docker login --username "$DOCKER_HUB_USER" --password-stdin
-                        docker push "$DOCKER_HUB_USERNAME/database-service:$IMAGE_VERSION"
-                        docker push "$DOCKER_HUB_USERNAME/backend-service:$IMAGE_VERSION"
-                        docker push "$DOCKER_HUB_USERNAME/frontend-service:$IMAGE_VERSION"
+
+                        for service in database-service backend-service frontend-service; do
+                            local_image="$service:dev"
+                            remote_image="$DOCKER_HUB_USERNAME/$service:$IMAGE_VERSION"
+                            docker image tag "$local_image" "$remote_image"
+                            docker push "$remote_image"
+                        done
                     '''
                 }
             }
@@ -115,6 +109,8 @@ pipeline {
             sh '''
                 docker network disconnect "${COMPOSE_PROJECT}_backend-net" monitoring-jenkins >/dev/null 2>&1 || true
                 docker compose -p "$COMPOSE_PROJECT" down --volumes --remove-orphans || true
+                docker logout >/dev/null 2>&1 || true
+                oc logout >/dev/null 2>&1 || true
                 rm -f secrets/mysql_root_password.txt
             '''
         }
