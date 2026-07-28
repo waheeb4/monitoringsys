@@ -1,5 +1,6 @@
 # Minikube Setup Commands (WSL / Linux, docker driver)
 
+> [Kubernetes and OpenShift overview](../README.md) ·
 > See [minikube-setup-windows10.md](minikube-setup-windows10.md) for the Windows/Hyper-V variant.
 
 This variant runs entirely inside WSL, reusing Docker Desktop's shared Docker daemon (no Hyper-V, no PowerShell). Run all commands below from your WSL terminal unless noted otherwise.

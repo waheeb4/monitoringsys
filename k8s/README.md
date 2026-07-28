@@ -1,103 +1,110 @@
-# Kubernetes Setup Documentation
+# Kubernetes and OpenShift Deployment
 
-## Overview
+This is the primary documentation for the Kubernetes manifests in this directory
+and their OpenShift deployment.
 
-This project runs a 3-tier IoT monitoring app on Kubernetes (Minikube for local dev):
+For local Minikube instructions, see:
 
-```
-Browser
-  └── NodePort Service (port 30080)
-        └── Frontend Pod (nginx)
-              └── ClusterIP Service (backend-service:80)
-                    └── Backend Pod (Spring Boot :8080)
-                          └── ClusterIP Service (database-service:3306)
-                                └── Database Pod (MySQL :3306)
-```
+- [Minikube overview](minikube/README.md)
+- [WSL/Linux setup](minikube/minikube-setup-linux.md)
+- [Windows 10 setup](minikube/minikube-setup-windows10.md)
 
----
+## Original Minikube Architecture
 
-## Files
+The original Minikube setup exposed the cluster node on port 30080. Kubernetes forwarded traffic to frontend-service:80,
+which forwarded it to the frontend pod:8080. nginx served the frontend and forwarded API requests to the internal backend
+service. Internal communication used ClusterIP Services, which provided stable DNS names and kept routing correct when Pods were replicated, recreated, or assigned new IP addresses.
 
-| File | Purpose |
-|---|---|
-| `backend-deployment.yaml` | Deploys backend Spring Boot app |
-| `backend-service.yaml` | ClusterIP service for backend (port 80 → 8080) |
-| `database-deployment.yaml` | Deploys MySQL database |
-| `database-service.yaml` | ClusterIP service for database (port 3306) |
-| `frontend-deployment.yaml` | Deploys frontend nginx app |
-| `frontend-service.yaml` | NodePort service, exposes frontend on port 30080 |
+   Browser
+      |
+      | Minikube IP : 30080
+      v
+  frontend-service  (type: NodePort)
+      |
+      | service port 80 → container port 8080
+      v
+  frontend Pod (nginx / Angular)
+      |
+      | internal request to backend-service
+      v
+  backend-service   (type: ClusterIP)
+      |
+      | port 80 → container port 8080
+      v
+  backend Pod (Spring Boot)
+      |
+      | internal request to database-service
+      v
+  database-service  (type: ClusterIP)
+      |
+      | port 3306 → container port 3306
+      v
+  database Pod (MySQL)
 
----
+## Current OpenShift Architecture
 
-## Prerequisites
+Browsers access the application through a domain managed by the OpenShift sandbox. DNS resolves the domain to
+the OpenShift router. The router matches the request hostname to the Route configured for the frontend service.
+The frontend service uses ClusterIP because it is no longer the directly exposed entry point.
 
-- Minikube installed and running (`minikube start`)
-- Images built and pushed to Docker Hub (`./build.sh nabil0412`)
+   Browser
+      |
+      | http/https domain : 80/443
+      v
+  OpenShift Router
+      |
+      | match request to route
+      v
+    Route
+      |
+      | target service: frontend-service:80
+      v
+  frontend-service  (type: ClusterIP)
+      |
+      v
+  Same cluster
 
----
+- No exposed :30080 port on every cluster node, users get a normal domain/HTTPS URL instead of a node IP and port.
+- The OpenShift Router centrally handles public routing, TLS certificates, redirects, and hostname matching.
+- frontend Service keeps a stable internal name (frontend-service) and can still load-balance across multiple frontend Pods.
 
-## Deploying
 
-Apply all yamls at once from the project root:
+## Manifest Changes for OpenShift
 
-```powershell
-minikube kubectl -- apply -f k8s/
-```
+- Change `frontend-service` from `NodePort` to `ClusterIP` and remove `nodePort: 30080`.
+- Create a Route that targets `frontend-service`.
+- Change frontend nginx upstream addresses because frontend and backend run in the same OpenShift Project/namespace.
+- Remove the Minikube-specific DNS server IP from nginx.
+- Maintain separate nginx configuration files for local Docker Compose and OpenShift.
+- Use environment variables in the backend deployment so the database service URL is overridden correctly.
 
----
+## OpenShift Creation
 
-## Checking Status
+- Use Quick Create and drag and drop the yaml files onto the console.
 
-```powershell
-# Check all pods are Running
-minikube kubectl -- get pods
+  ![OpenShift Import YAML screen](assets/openshift-import-yaml.png)
 
-# Check services
-minikube kubectl -- get services
+  ![OpenShift resources successfully created](assets/openshift-resources-created.png)
 
-# Get frontend URL
-minikube service frontend-service --url
-```
+- Created a jenkins bot that will be used by jenkins 'oc create serviceaccount jenkins-deployer'.
 
----
+- Give the bot permission to update deployments 'oc policy add-role-to-user edit \
+    system:serviceaccount:waheeb4-dev:jenkins-deployer'.
 
-## Viewing Logs
+- Create an access token for the bot to use with a 90 day duration 'oc create token jenkins-deployer --duration=2160h' and
+added as a global secret text, in addition to docker hub PAT.
 
-```powershell
-minikube kubectl -- logs deployment/backend-deployment
-minikube kubectl -- logs deployment/frontend-deployment
-minikube kubectl -- logs deployment/database-deployment
-```
+- Get the public OpenShift API link that jenkins will call 'https://api.rm3.7wse.p1.openshiftapps.com:6443' and add it as an
+env in jenkins.
 
-To follow logs in real time:
-```powershell
-minikube kubectl -- logs deployment/backend-deployment -f
-```
+## Essential Commands
 
----
-
-## Redeploying After a Code Change
-
-1. Bump the image tag in `build.sh` (e.g. `v1.4` → `v1.5`)
-2. Build and push in WSL:
-   ```bash
-   cd /mnt/d/DXC/Code-fresh && ./build.sh nabil0412
-   ```
-3. Update the image tag in the relevant deployment yaml
-4. Apply in PowerShell:
-   ```powershell
-   minikube kubectl -- apply -f k8s/<changed-deployment>.yaml
-   ```
-
----
-
-## Known Configuration Changes Made for Kubernetes
-
-| File | Change | Reason |
-|---|---|---|
-| `application.properties` | `db-container` → `database-service` | Kubernetes uses service names not container names |
-| `nginx.conf` | `backend-container` → `backend-service.default.svc.cluster.local:80` | Same reason; port changed to match ClusterIP service port |
-| `nginx.conf` | resolver changed from `127.0.0.11` to `10.96.0.10` | Docker DNS resolver doesn't exist in Kubernetes |
-| `SecurityConfig.java` | `List.of(allowedOrigins)` → `List.of(allowedOrigins.split(","))` | Allows comma-separated CORS origins |
-| `database-deployment.yaml` | Added `MYSQL_ROOT_PASSWORD` env var | MySQL requires password on first init |
-| `backend-deployment.yaml` | Added `CORS_ALLOWED_ORIGINS` env var | Allows requests from Minikube IP |
+- oc status -> to identify if the services point to the correct pods.
+- oc get pods -> get the current running deployments and replica sets.
+- oc rollout status deployment/database-deployment -> check rollout pod status.
+- oc rollout restart deployment/backend-deployment -> restart the pod.
+- oc get svc -> get services.
+- oc get pvc -> get persistent volume claim.
+- oc get route -> public url for the app.
+- oc get endpoints backend-service -> actual pod IP behind the service.
+- oc scale deployment/database-deployment deployment/backend-deployment deployment/frontend-deployment --replicas=1 -n waheeb4-dev
