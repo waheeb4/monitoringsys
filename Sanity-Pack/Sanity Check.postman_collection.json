@@ -28,9 +28,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/sensors/street-light",
+          "raw": "{{baseUrl}}/api/sensors/street-light",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -84,7 +84,7 @@
               "    });",
               "",
               "    pm.sendRequest({",
-              "        url: pm.environment.get('base_url') + '/auth/login',",
+              "        url: pm.environment.get('baseUrl') + '/auth/login',",
               "        method: 'POST',",
               "        header: { 'Content-Type': 'application/json' },",
               "        body: {",
@@ -127,9 +127,9 @@
           "raw": "{\n  \"firstName\": \"{{test_fname}}\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/auth/signup",
+          "raw": "{{baseUrl}}/auth/signup",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "auth",
@@ -173,9 +173,9 @@
           "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/auth/login",
+          "raw": "{{baseUrl}}/auth/login",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "auth",
@@ -224,9 +224,9 @@
           }
         },
         "url": {
-          "raw": "{{base_url}}/api/sensors/street-light",
+          "raw": "{{baseUrl}}/api/sensors/street-light",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -275,9 +275,9 @@
           }
         },
         "url": {
-          "raw": "{{base_url}}/api/sensors/traffic",
+          "raw": "{{baseUrl}}/api/sensors/traffic",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -326,9 +326,9 @@
           }
         },
         "url": {
-          "raw": "{{base_url}}/api/sensors/air-pollution",
+          "raw": "{{baseUrl}}/api/sensors/air-pollution",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -363,9 +363,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/sensors/street-light",
+          "raw": "{{baseUrl}}/api/sensors/street-light",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -400,9 +400,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/sensors/traffic",
+          "raw": "{{baseUrl}}/api/sensors/traffic",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -436,9 +436,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/sensors/air-pollution",
+          "raw": "{{baseUrl}}/api/sensors/air-pollution",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -473,9 +473,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/alerts",
+          "raw": "{{baseUrl}}/api/alerts",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
@@ -506,9 +506,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/api/settings",
+          "raw": "{{baseUrl}}/api/settings",
           "host": [
-            "{{base_url}}"
+            "{{baseUrl}}"
           ],
           "path": [
             "api",
