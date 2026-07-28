@@ -12,7 +12,6 @@ services:
     build:
       context: ./IoT-Monitoring-System-backend
       dockerfile: database.Dockerfile
-    container_name: database-container
 
     environment:
       MYSQL_DATABASE: monitoring
@@ -46,7 +45,6 @@ services:
     build:
       context: ./IoT-Monitoring-System-backend
       dockerfile: backend.Dockerfile
-    container_name: backend-container
 
     # Use an entrypoint wrapper to read the secret file and export it
     # as SPRING_DATASOURCE_PASSWORD before Spring Boot starts
@@ -102,7 +100,6 @@ services:
     build:
       context: ./IoT-Monitoring-System-frontend
       dockerfile: frontend.Dockerfile
-    container_name: frontend-container
 
     volumes:
       - type: bind
