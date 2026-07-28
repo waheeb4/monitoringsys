@@ -35,8 +35,9 @@ pipeline {
                 withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
                     sh '''
                         set -eu
-                        umask 077
                         mkdir -p secrets
+                        install -o 1001 -g 1001 -m 0400 \
+                            /dev/null secrets/mysql_root_password.txt
                         printf '%s' "$MYSQL_ROOT_PASSWORD" > secrets/mysql_root_password.txt
                     '''
                 }
