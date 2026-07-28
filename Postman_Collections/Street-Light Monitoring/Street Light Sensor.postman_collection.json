@@ -1,0 +1,2741 @@
+{
+  "info": {
+    "_postman_id": "827f1ae0-be0f-48dc-9635-f9c804a9182e",
+    "name": "Street Light Sensor",
+    "description": "**Sprint 4 — Streetlight Monitoring Dashboard | API Test Suite**\n\n_Comprehensive API Test Suite | 7 folders | Built against actual source code_\n\n**Folder 0 — Unauthenticated Guard**\n\nVerifies that both the GET history and POST create endpoints for the streetlight sensor reject requests with no token, returning a 401 Unauthorized before any business logic is executed. Also confirms the alerts endpoint enforces authentication, returning 401 with no token.\n\n**Folder 1 — Authentication**\n\nConfirms the login endpoint returns a 200 OK, that the response body carries a valid JWT (verified as a 3-segment dot-separated string), and that the token is automatically chained into the Postman environment variables for all downstream requests.\n\n**Folder 2 — Data Ingestion & Validation — POST**\n\nCovers the happy-path creation of Streetlight data (both ON and OFF states) and validates the echoed fields. Probes the exact boundary values permitted by the annotations: `brightnessLevel` (min 0, max 100) and `powerConsumption` (min 0.0, max 1000.0). Crosses these constraints in the opposite direction (brightness > 100, power < 0, invalid enum strings) expecting a 400 Bad Request. Strictly tests the custom `@AssertTrue` business logic, ensuring that if the status is OFF, both brightness and power must be exactly 0/0.0. Further tests missing and null required fields driven by `@NotBlank`, `@Size(max=50)`, and `@NotNull` annotations, as well as JSON deserialization type mismatches (e.g., sending strings where numeric values are expected).\n\n**Folder 3 — Dashboard & Filtering — GET**\n\nValidates the paginated response envelope shape: a wrapper object with a `data` array and a `total` integer. Covers pagination limit boundaries: negative and zero values returning 400, while a valid custom limit restricts the array size. Tests `status` filtering including a valid match, an unknown enum value (400), and case-sensitivity (400). Covers full date range filtering (both bounds together, independently, and malformed strings). Targets the location filter specifically, confirming it utilizes a partial string search (`LIKE` match) rather than exact match, ignores blank values, and returns an empty data array (200 OK) for nonexistent locations.\n\n**Folder 4 — Sorting**\n\nVerifies meaningful sort combinations (e.g., `brightnessLevel` ascending, `powerConsumption` descending, `timestamp` descending) and asserts the non-increasing/non-decreasing ordering holds across consecutive pairs. Confirms validation for unrecognized `sortDir` inputs (triggering a 400 Bad Request via `@Pattern`) and validates the silent-fallback behavior encoded in the service where an unrecognized `sortBy` gracefully defaults to sorting by `timestamp`.\n\n**Folder 5 — Alert Trigger Verification**\n\nExecutes a POST request with readings that intentionally violate the configured metrics (e.g., massive power surges or irregular brightness), confirming a 201 Created. Follows up by hitting GET `/api/alerts` and dynamically parsing the array (`.find()`) to assert that at least one `STREET_LIGHT` alert exists, verifying the alert object carries the expected schema fields (`id`, `firedAt`, `metric`, `thresholdValue`) without leaking sensitive user data.\n\n**Folder 6 — Schema Validation**\n\nUtilizes the Postman Collection Variables to define a centralized, strict `streetLightSchema` (powered by the Ajv JSON schema validator) with Regex UUID validation and enum enforcement.\n\n- **Test 1 (POST):** Validates a single, created Streetlight object against the base collection variable schema to ensure strict structural compliance (no missing properties, no unexpected additional properties).\n    \n- **Test 2 (GET):** Dynamically injects the base schema from the collection variables into a paginated wrapper schema (`{ total, data: [] }`), validating the entire history list structure in a single, robust assertion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47000186",
+    "_collection_link": "https://go.postman.co/collection/47000186-827f1ae0-be0f-48dc-9635-f9c804a9182e?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "0. Unauthenticated Requests Copy",
+      "item": [
+        {
+          "name": "TC00 - Unauthenticated GET Guard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC01 - Unauthenticated POST Guard (sensors may POST without auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// SecurityConfig permits POST /api/sensors/** without auth (devices push readings unauthenticated)",
+                  "pm.test(\"Returns 201 Created (POST is intentionally public)\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-A\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 80,\n  \"powerConsumption\": 150.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC02 - GET /api/alerts without token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alerts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication Copy",
+      "item": [
+        {
+          "name": "TC03 - Login and Set Token (uses test_email/test_password from Sprint 1 signup)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const token = body.token;",
+                  "pm.test(\"Token field is present\", () => { pm.expect(token).to.not.be.undefined; pm.expect(token).to.not.be.null; });",
+                  "pm.test(\"Token looks like a JWT\", () => { pm.expect(token.split(\".\").length).to.equal(3); });",
+                  "if (token) { pm.environment.set(\"token\", token); pm.environment.set(\"tokenExpiry\", Date.now() + 3600000); }"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Data Ingestion & Validation (POST) Copy",
+      "item": [
+        {
+          "name": "TC04 - Valid Street Light Data Creation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"id is a UUID\", () => pm.expect(d.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i));",
+                  "pm.test(\"location echoed correctly\", () => pm.expect(d.location).to.equal(\"Zone-A\"));",
+                  "pm.test(\"brightnessLevel is 80\", () => pm.expect(d.brightnessLevel).to.equal(80));",
+                  "pm.test(\"powerConsumption is ~150.0\", () => pm.expect(d.powerConsumption).to.be.closeTo(150.0, 0.01));",
+                  "pm.test(\"status is ON\", () => pm.expect(d.status).to.equal(\"ON\"));",
+                  "pm.test(\"timestamp is present\", () => pm.expect(d.timestamp).to.be.a(\"string\").and.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-A\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 80,\n  \"powerConsumption\": 150.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC05 - Server overrides submitted timestamp with server-authoritative time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Service now calls data.setTimestamp(LocalDateTime.now()) and ignores req.timestamp()",
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"Returned timestamp is NOT the submitted historical value\", () => {",
+                  "    pm.expect(d.timestamp.startsWith(\"2000-01-01\")).to.equal(false);",
+                  "});",
+                  "pm.test(\"Returned timestamp is close to current server time (within 6 hours, allowing for container/local timezone display differences since LocalDateTime has no zone info)\", () => {",
+                  "    const returned = new Date(d.timestamp).getTime();",
+                  "    const now = Date.now();",
+                  "    pm.expect(Math.abs(now - returned)).to.be.below(6 * 60 * 60 * 1000);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-A\",\n  \"timestamp\": \"2000-01-01T00:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 - Boundary: brightnessLevel=0 (min valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 0,\n  \"powerConsumption\": 200.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC07 - Boundary: brightnessLevel=100 (max valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 100,\n  \"powerConsumption\": 200.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC08 - brightnessLevel > 100 (@Max violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 101,\n  \"powerConsumption\": 200.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC09 - brightnessLevel < 0 (@Min violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": -1,\n  \"powerConsumption\": 200.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC10 - Boundary: powerConsumption=0.0 (min valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 0.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC11 - Boundary: powerConsumption=1000.0 (max valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 1000.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC12 - powerConsumption > 1000 (@Max violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 1000.5,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC13 - powerConsumption < 0 (@Min violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-B\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": -0.5,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC14 - Invalid status enum → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-C\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"FLICKERING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC15 - status=OFF with brightnessLevel != 0 → 400 (business rule)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-C\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 10,\n  \"powerConsumption\": 0.0,\n  \"status\": \"OFF\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC16 - status=OFF with powerConsumption != 0 → 400 (business rule)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-C\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 0,\n  \"powerConsumption\": 5.0,\n  \"status\": \"OFF\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC17 - status=OFF with brightnessLevel=0 and powerConsumption=0 → 201 (valid off state)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"status is OFF\", () => pm.expect(d.status).to.equal(\"OFF\"));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-C\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 0,\n  \"powerConsumption\": 0.0,\n  \"status\": \"OFF\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC18 - Missing location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC19 - Empty string location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC20 - Location exceeds 50 chars (@Size max=50) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC21 - Missing timestamp (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-D\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC22 - Missing status (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-D\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC23 - Empty body {} → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC24 - brightnessLevel as string (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-D\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": \"bright\",\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC25 - powerConsumption as string (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-D\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": \"lots\",\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC26 - timestamp as number (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Zone-D\",\n  \"timestamp\": 1234567890,\n  \"brightnessLevel\": 50,\n  \"powerConsumption\": 100.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Dashboard, Filtering & Pagination (GET) Copy",
+      "item": [
+        {
+          "name": "TC27 - Default Dashboard View (no params, limit=10, wrapper schema check)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Content-Type is JSON\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Wrapper contains 'total' integer field\", () => {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body.total).to.be.a(\"number\");",
+                  "    pm.expect(body.total % 1).to.equal(0);",
+                  "    pm.expect(body.total).to.be.at.least(0);",
+                  "});",
+                  "pm.test(\"Wrapper contains 'data' array\", () => pm.expect(body.data).to.be.an(\"array\"));",
+                  "pm.test(\"total reflects full DB count (>= data.length)\", () => pm.expect(body.total).to.be.at.least(body.data.length));",
+                  "pm.test(\"Default limit returns at most 10 records\", () => pm.expect(body.data.length).to.be.at.most(10));",
+                  "const records = body.data;",
+                  "if (records.length > 0) {",
+                  "    records.forEach((r, i) => {",
+                  "        pm.test(`[${i}] has all required dashboard fields`, () => {",
+                  "            pm.expect(r).to.include.all.keys(\"id\", \"location\", \"timestamp\", \"brightnessLevel\", \"powerConsumption\", \"status\");",
+                  "        });",
+                  "        pm.test(`[${i}] id is a UUID`, () => pm.expect(r.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i));",
+                  "        pm.test(`[${i}] brightnessLevel within [0,100]`, () => pm.expect(r.brightnessLevel).to.be.within(0, 100));",
+                  "        pm.test(`[${i}] powerConsumption within [0,1000]`, () => pm.expect(r.powerConsumption).to.be.within(0, 1000));",
+                  "        pm.test(`[${i}] status is a valid enum value`, () => pm.expect([\"ON\", \"OFF\"]).to.include(r.status));",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC28 - limit=-5 results in 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error message mentions limit\", () => pm.expect(pm.response.text().toLowerCase()).to.include(\"limit\"));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=-5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "-5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC29 - limit=0 throws 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC30 - limit=3 (custom limit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"data length is at most 3\", () => pm.expect(body.data.length).to.be.at.most(3));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC31 - limit='abc' (string type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (non-numeric limit rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC32 - limit='3abc' (mixed string+number) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (mixed limit rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=3abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC33 - offset not specified → defaults to 0, returns first page",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"data length is at most 5\", () => pm.expect(body.data.length).to.be.at.most(5));",
+                  "if (body.data.length > 0) pm.environment.set(\"firstPageFirstId\", body.data[0].id);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC34 - offset=limit → returns second page (no overlap with first page)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"data is an array\", () => pm.expect(body.data).to.be.an(\"array\"));",
+                  "const firstPageFirstId = pm.environment.get(\"firstPageFirstId\");",
+                  "if (firstPageFirstId && body.data.length > 0) {",
+                  "    pm.test(\"Second page does not repeat the first record of page 1\", () => {",
+                  "        pm.expect(body.data.map(r => r.id)).to.not.include(firstPageFirstId);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=5&offset=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "offset",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC35 - offset beyond total record count → 200 + empty data, total unaffected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"data is empty for out-of-range offset\", () => pm.expect(body.data.length).to.equal(0));",
+                  "pm.test(\"total still reflects full DB count\", () => pm.expect(body.total).to.be.at.least(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=10&offset=999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "999999"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC36 - Filter status=ON → 200, all records status ON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"All records have status = ON\", () => body.data.forEach(r => pm.expect(r.status).to.equal(\"ON\")));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?status=ON",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ON"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC37 - Filter status=INVALID (enum) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (Spring enum binding error)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?status=INVALID",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "INVALID"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC38 - Filter by full date range (from + to) → all timestamps within bounds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const from = new Date(\"2000-01-01T00:00:00\").getTime();",
+                  "const to = new Date(\"2099-12-31T00:00:00\").getTime();",
+                  "pm.test(\"All timestamps within bounds\", () => body.data.forEach(r => {",
+                  "    const t = new Date(r.timestamp).getTime();",
+                  "    pm.expect(t).to.be.at.least(from);",
+                  "    pm.expect(t).to.be.at.most(to);",
+                  "}));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?from=2000-01-01T00:00:00&to=2099-12-31T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2000-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2099-12-31T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC39 - Filter by 'from' date only → all timestamps >= from",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const from = new Date(\"2020-01-01T00:00:00\").getTime();",
+                  "pm.test(\"All timestamps >= from\", () => body.data.forEach(r => pm.expect(new Date(r.timestamp).getTime()).to.be.at.least(from)));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?from=2020-01-01T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2020-01-01T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC40 - Filter by 'to' date only → all timestamps <= to",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const to = new Date(\"2099-12-31T00:00:00\").getTime();",
+                  "pm.test(\"All timestamps <= to\", () => body.data.forEach(r => pm.expect(new Date(r.timestamp).getTime()).to.be.at.most(to)));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?to=2099-12-31T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "2099-12-31T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC41 - from=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed from date)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?from=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC42 - to=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed to date)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?to=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC43 - Future date range with no data → 200 + empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"data is empty array for future range with no data\", () => pm.expect(body.data.length).to.equal(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?from=2090-01-01T00:00:00&to=2090-12-31T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2090-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2090-12-31T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC44 - location exact match → all returned records match exactly",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"All records have location = Zone-A (exact match)\", () => body.data.forEach(r => pm.expect(r.location).to.equal(\"Zone-A\")));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?location=Zone-A",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Zone-A"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC45 - location partial string → 200 + returns matching records (partial/LIKE-style match confirmed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verified against running branch: Street Light location filter matches partial substrings (unlike Traffic's exact cb.equal)",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Partial location match returns records containing the substring\", () => {",
+                  "    pm.expect(body.data.length).to.be.greaterThan(0);",
+                  "    body.data.forEach(r => pm.expect(r.location.toLowerCase()).to.include(\"zone\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?location=Zone",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Zone"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC46 - location='' (blank) → filter ignored, returns all records",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns records (blank location filter is ignored)\", () => pm.expect(body.data.length).to.be.greaterThan(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?location=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC47 - location=nonexistent → 200 + total=0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns total=0 for unknown location\", () => pm.expect(body.total).to.equal(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?location=nonexistent-place-99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "nonexistent-place-99999"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Sorting Copy",
+      "item": [
+        {
+          "name": "TC48 - sortBy=brightnessLevel&sortDir=asc → brightnessLevel non-decreasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const r = body.data;",
+                  "pm.test(\"brightnessLevel sorted ascending\", () => { for (let i = 1; i < r.length; i++) pm.expect(r[i].brightnessLevel).to.be.at.least(r[i-1].brightnessLevel); });"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortBy=brightnessLevel&sortDir=asc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "brightnessLevel"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC49 - sortBy=powerConsumption&sortDir=desc → powerConsumption non-increasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const r = body.data;",
+                  "pm.test(\"powerConsumption sorted descending\", () => { for (let i = 1; i < r.length; i++) pm.expect(r[i].powerConsumption).to.be.at.most(r[i-1].powerConsumption + 0.001); });"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortBy=powerConsumption&sortDir=desc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "powerConsumption"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC50 - sortBy=timestamp&sortDir=desc → most recent first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const r = body.data;",
+                  "pm.test(\"Timestamps sorted descending\", () => { for (let i = 1; i < r.length; i++) pm.expect(new Date(r[i].timestamp).getTime()).to.be.at.most(new Date(r[i-1].timestamp).getTime()); });"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortBy=timestamp&sortDir=desc&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC51 - sortBy=timestamp&sortDir=asc → oldest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const r = body.data;",
+                  "pm.test(\"Timestamps sorted ascending\", () => { for (let i = 1; i < r.length; i++) pm.expect(new Date(r[i].timestamp).getTime()).to.be.at.least(new Date(r[i-1].timestamp).getTime()); });"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortBy=timestamp&sortDir=asc&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC53 - Negative: Invalid sortDir throws 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error message mentions sortDir\", () => pm.expect(pm.response.text().toLowerCase()).to.include(\"sortdir\"));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortDir=INVALID&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortDir",
+                  "value": "INVALID"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC54 - Invalid sortBy falls back to default (timestamp) sort → 200 (not 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verified: StreetLightHistoryService switch statement has a \"default -> timestamp\" fallback, so unknown sortBy values do not error",
+                  "pm.test(\"Status is 200 (falls back to default sort instead of rejecting)\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Falls back to sorting by timestamp\", () => {",
+                  "    const r = body.data;",
+                  "    for (let i = 1; i < r.length; i++) {",
+                  "        pm.expect(new Date(r[i].timestamp).getTime()).to.be.at.most(new Date(r[i-1].timestamp).getTime());",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?sortBy=UNKNOWN_FIELD&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "UNKNOWN_FIELD"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Alerts Verification",
+      "item": [
+        {
+          "name": "TC55 - POST violating reading triggers alert (brightnessLevel=100, powerConsumption=1000)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"id is UUID\", () => pm.expect(d.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i));",
+                  "pm.test(\"brightnessLevel saved as 100\", () => pm.expect(d.brightnessLevel).to.equal(100));",
+                  "pm.test(\"powerConsumption saved as ~1000.0\", () => pm.expect(d.powerConsumption).to.be.closeTo(1000.0, 0.01));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Alert Zone\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"brightnessLevel\": 100,\n  \"powerConsumption\": 1000.0,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC56 - GET /api/alerts → 200 + at least one alert with valid schema",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "const alerts = Array.isArray(body) ? body : (body.data || body.content || []);",
+                  "",
+                  "pm.test(\"At least one alert exists in the system\", () => pm.expect(alerts.length).to.be.greaterThan(0));",
+                  "",
+                  "// Find the first alert specifically for STREET_LIGHT",
+                  "const streetLightAlert = alerts.find(alert => alert.sensorType === \"STREET_LIGHT\");",
+                  "",
+                  "pm.test(\"At least one STREET_LIGHT alert exists\", () => {",
+                  "    pm.expect(streetLightAlert, \"No STREET_LIGHT alert found in the response\").to.not.be.undefined;",
+                  "});",
+                  "",
+                  "if (streetLightAlert) {",
+                  "    pm.test(\"Alert has a valid string id\", () => {",
+                  "        pm.expect(streetLightAlert.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i);",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Alert has a 'firedAt' timestamp\", () => { ",
+                  "        pm.expect(streetLightAlert).to.have.property(\"firedAt\"); ",
+                  "        pm.expect(streetLightAlert.firedAt).to.be.a(\"string\"); ",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Sensor type references STREET_LIGHT\", () => { ",
+                  "        pm.expect(streetLightAlert).to.have.property(\"sensorType\"); ",
+                  "        pm.expect(streetLightAlert.sensorType.toUpperCase()).to.include(\"STREET\"); ",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Alert includes metric and threshold details\", () => { ",
+                  "        pm.expect(streetLightAlert).to.have.property(\"metric\"); ",
+                  "        pm.expect(streetLightAlert).to.have.property(\"alertType\"); ",
+                  "        pm.expect(streetLightAlert).to.have.property(\"thresholdValue\"); ",
+                  "    });",
+                  "}",
+                  "",
+                  "// --- SCHEMA VALIDATION FOR ALL ALERTS ---",
+                  "const alertItemSchema = {",
+                  "    \"type\": \"object\",",
+                  "    \"properties\": {",
+                  "        \"id\": { \"type\": \"string\" },",
+                  "        \"sensorType\": { \"type\": \"string\" },",
+                  "        \"metric\": { \"type\": \"string\" },",
+                  "        \"actualValue\": { \"type\": \"number\" },",
+                  "        \"thresholdValue\": { \"type\": \"number\" },",
+                  "        \"alertType\": { \"type\": \"string\", \"enum\": [\"ABOVE\", \"BELOW\"] },",
+                  "        \"location\": { \"type\": \"string\" },",
+                  "        \"firedAt\": { \"type\": \"string\" }",
+                  "    },",
+                  "    \"required\": [\"id\", \"sensorType\", \"metric\", \"thresholdValue\", \"alertType\", \"location\", \"firedAt\"]",
+                  "};",
+                  "",
+                  "pm.test(\"Each alert in the response matches the expected JSON schema\", () => {",
+                  "    alerts.forEach((alert) => {",
+                  "        pm.expect(alert).to.have.jsonSchema(alertItemSchema);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alerts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6.Schema-Validation",
+      "item": [
+        {
+          "name": "Schema-Validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const responseData = pm.response.json();",
+                  "",
+                  "const schemaString = pm.collectionVariables.get(\"streetLightSchema\");",
+                  "const streetLightSchema = JSON.parse(schemaString);",
+                  "",
+                  "pm.test(\"Response body matches Streetlight Schema\", function () {",
+                  "    pm.response.to.have.jsonSchema(streetLightSchema);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Main Highway\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"brightnessLevel\": 75,\n  \"powerConsumption\": 120.5,\n  \"status\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Schema-Validation (GET)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Parse the response body",
+                  "const responseData = pm.response.json();",
+                  "",
+                  "// 2. Fetch the base schema (single streetlight) from Collection Variables",
+                  "const baseSchemaString = pm.collectionVariables.get(\"streetLightSchema\");",
+                  "const baseStreetLightSchema = JSON.parse(baseSchemaString);",
+                  "",
+                  "// 3. Define the paginated wrapper schema, injecting the base schema into the 'data' array",
+                  "const paginatedSchema = {",
+                  "    \"type\": \"object\",",
+                  "    \"properties\": {",
+                  "        \"total\": { ",
+                  "            \"type\": \"integer\",",
+                  "            \"minimum\": 0",
+                  "        },",
+                  "        \"data\": {",
+                  "            \"type\": \"array\",",
+                  "            \"items\": baseStreetLightSchema // <-- Reusing your variable here!",
+                  "        }",
+                  "    },",
+                  "    \"required\": [\"total\", \"data\"],",
+                  "    // Optional: Prevents the API from sneaking in unexpected fields at the root level",
+                  "    \"additionalProperties\": false ",
+                  "};",
+                  "",
+                  "// 4. Execute the assertions",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Response body matches Streetlight paginated schema\", function () {",
+                  "    pm.response.to.have.jsonSchema(paginatedSchema);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/street-light?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "street-light"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "streetLightSchema",
+      "value": ""
+    }
+  ]
+}

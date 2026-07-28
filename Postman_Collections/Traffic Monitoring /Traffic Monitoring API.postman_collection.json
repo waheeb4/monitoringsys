@@ -1,0 +1,2515 @@
+{
+  "info": {
+    "_postman_id": "c55f4f23-6f2b-49b6-b4ad-f3b0c513ad40",
+    "name": "Traffic Monitoring API",
+    "description": "**Sprint 3 — Traffic Monitoring Dashboard | API Test Suite**_51 test cases (TC00–TC50) | 6 folders | Built against actual source code_\n\n---\n\n**Folder 0 — Unauthenticated Guard (TC00–TC01)**  \nVerifies that both the GET history and POST create endpoints reject requests with no token, returning 401 before any business logic runs, TC50 confirms the alerts endpoint also enforces authentication, returning 401 with no token.\n\n**Folder 1 — Authentication (TC02)**  \nConfirms the login endpoint returns 200, that the response body carries a valid JWT (verified as 3-segment dot-separated string), and that the token is chained into the environment for all downstream requests.\n\n**Folder 2 — Data Ingestion & Validation — POST (TC03–TC22)**  \nTC03 covers the happy-path creation and validates the full response schema (UUID id, echoed fields, float precision with closeTo). TC04–TC07 probe the four exact boundary values permitted by the annotations: trafficDensity=0, trafficDensity=500, avgSpeed=0.0, avgSpeed=200.0 — all must return 201. TC08–TC12 cross each constraint in the opposite direction (density > 500, density < 0, speed < 0, speed > 200, invalid enum) expecting 400. TC13–TC19 test missing and null required fields driven by @NotBlank, @Size(max=50), and @NotNull annotations. TC20–TC22 send the wrong JSON type for numeric and date fields (string where int/float/LocalDateTime is expected), confirming Spring's deserialization rejects them with 400.\n\n**Folder 3 — Dashboard & Filtering — GET (TC23–TC41)**  \nTC23 validates the real response envelope shape: a wrapper object with a `data` array and a `total` integer, not a plain array — with per-record type checks on all six dashboard fields. TC24–TC28 cover the limit parameter: negative and zero values silently default to 10 (not a 400), a valid custom limit is respected, and non-numeric strings like `abc` and `3abc` are rejected. TC29–TC31 test congestionLevel filtering including a valid match, an unknown enum value (400), and lowercase input (400, confirming case-sensitivity). TC32–TC37 cover date range filtering: both bounds together, each bound independently, malformed date strings (400), and a valid future range that returns an empty result. TC38–TC41 target the location filter specifically, confirming it uses exact match (cb.equal, not LIKE): a partial string returns an empty array, a blank value is silently ignored, and an unknown location returns 200 with an empty data array rather than a 404.\n\n**Folder 4 — Sorting (TC42–TC47)**  \nTC42–TC45 verify all four meaningful sort combinations: avgSpeed ascending, trafficDensity descending, timestamp descending (most recent first), and timestamp ascending (oldest first), each asserting the ordering holds across consecutive pairs. TC46–TC47 confirm the silent-fallback behavior encoded in the service: an unrecognised sortDir defaults to descending and an unrecognised sortBy defaults to timestamp, neither returning a 400.\n\n**Folder 5 — Alert Trigger Verification (TC48–TC50)**  \nTC48 POSTs a reading that violates both configured thresholds (trafficDensity=500, avgSpeed=5.0, congestionLevel=SEVERE), confirms 201 and validates the saved record fields. TC49 then hits GET /api/alerts and asserts at least one alert exists, that it carries the expected schema fields (id, timestamp, type referencing TRAFFIC), and that no sensitive data is leaked.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47000186",
+    "_collection_link": "https://go.postman.co/collection/47000186-c55f4f23-6f2b-49b6-b4ad-f3b0c513ad40?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "0. Unauthenticated Requests",
+      "item": [
+        {
+          "name": "TC00 - Unauthenticated GET Guard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns 401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "packages": {},
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC01 - Unauthenticated POST Guard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns 401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 100,\n  \"avgSpeed\": 40.0,\n  \"congestionLevel\": \"LOW\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC50 - GET /api/alerts without token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alerts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "TC02 - Login and Set Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const token = body.token;",
+                  "pm.test(\"Token field is present\", () => {",
+                  "    pm.expect(token).to.not.be.undefined;",
+                  "    pm.expect(token).to.not.be.null;",
+                  "});",
+                  "pm.test(\"Token looks like a JWT (3 dot-separated segments)\", () => {",
+                  "    pm.expect(token).to.be.a(\"string\").and.have.length.above(10);",
+                  "    pm.expect(token.split(\".\").length).to.equal(3);",
+                  "});",
+                  "pm.test(\"Response does not leak password\", () => pm.expect(pm.response.text().toLowerCase()).to.not.include(\"password\"));",
+                  "if (token) { pm.environment.set(\"token\", token); pm.environment.set(\"tokenExpiry\", Date.now() + 3600000); }"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Data Ingestion & Validation (POST)",
+      "item": [
+        {
+          "name": "TC03 - Valid Traffic Data Creation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"id is a UUID (36-char string)\", () => pm.expect(d.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i));",
+                  "pm.test(\"location echoed correctly\", () => pm.expect(d.location).to.equal(\"Downtown Main St\"));",
+                  "pm.test(\"trafficDensity is integer 150\", () => { pm.expect(d.trafficDensity).to.equal(150); pm.expect(d.trafficDensity % 1).to.equal(0); });",
+                  "pm.test(\"avgSpeed is ~45.5 (float closeTo)\", () => pm.expect(d.avgSpeed).to.be.closeTo(45.5, 0.01));",
+                  "pm.test(\"congestionLevel is MODERATE\", () => pm.expect(d.congestionLevel).to.equal(\"MODERATE\"));",
+                  "pm.test(\"timestamp is present\", () => pm.expect(d.timestamp).to.be.a(\"string\").and.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/));",
+                  "pm.test(\"No password/secret in response\", () => pm.expect(pm.response.text().toLowerCase()).to.not.include(\"password\"));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC04 - Boundary: trafficDensity=0 (min valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"trafficDensity echoed as 0\", () => pm.expect(pm.response.json().trafficDensity).to.equal(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 0,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC05 - Boundary: trafficDensity=500 (max valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"trafficDensity echoed as 500\", () => pm.expect(pm.response.json().trafficDensity).to.equal(500));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 500,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 - Boundary: avgSpeed=0.0 (min valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"avgSpeed is ~0.0\", () => pm.expect(pm.response.json().avgSpeed).to.be.closeTo(0.0, 0.01));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 0.0,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC07 - Boundary: avgSpeed=200.0 (max valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"avgSpeed is ~200.0\", () => pm.expect(pm.response.json().avgSpeed).to.be.closeTo(200.0, 0.01));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 200.0,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC08 - trafficDensity > 500 (@Max violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 501,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC09 - trafficDensity < 0 (@Min violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": -5,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC10 - avgSpeed < 0.0 (@DecimalMin violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": -1.0,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC11 - avgSpeed > 200.0 (@DecimalMax violation) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 350.0,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC12 - Invalid congestionLevel enum → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"SUPER_HIGH\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC13 - Missing location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC14 - Empty string location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC15 - Location exceeds 50 chars (@Size max=50) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC16 - Missing timestamp (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC17 - Missing congestionLevel (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC18 - Null congestionLevel (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC19 - Empty body {} → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => {  pm.response.to.have.status(400);});",
+                  "",
+                  "const errors = pm.response.json();",
+                  "",
+                  "pm.test(\"Response details missing field validation errors\", () => {",
+                  "    pm.expect(errors).to.have.property(\"location\", \"must not be blank\");",
+                  "    pm.expect(errors).to.have.property(\"congestionLevel\", \"must not be null\");",
+                  "    pm.expect(errors).to.have.property(\"timestamp\", \"must not be null\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC20 - trafficDensity as string 'abc' (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": \"abc\",\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC21 - avgSpeed as string 'fast' (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 150,\n  \"avgSpeed\": \"fast\",\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC22 - timestamp as number (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown Main St\",\n  \"timestamp\": 1234567890,\n  \"trafficDensity\": 150,\n  \"avgSpeed\": 45.5,\n  \"congestionLevel\": \"MODERATE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Dashboard & Filtering (GET)",
+      "item": [
+        {
+          "name": "TC23 - Default Dashboard View (no params, limit=10, schema check)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// ── Status & headers ─────────────────────────────────────────────────────────",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Content-Type is JSON\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "// ── Parse safely ─────────────────────────────────────────────────────────────",
+                  "pm.test(\"Response body is valid JSON\", () => {",
+                  "    pm.response.json();",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"Wrapper contains 'total' integer field\", () => {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body.total).to.be.a(\"number\");",
+                  "    pm.expect(body.total % 1).to.equal(0);       // confirms integer",
+                  "    pm.expect(body.total).to.be.at.least(0);",
+                  "});",
+                  "",
+                  "pm.test(\"total reflects the full DB count (>= data.length)\", () => {",
+                  "    pm.expect(body.total).to.be.at.least(body.data.length);",
+                  "});",
+                  "",
+                  "pm.test(\"Default limit returns at most 10 records in data[]\", () => {",
+                  "    pm.expect(body.data.length).to.be.at.most(10);",
+                  "});",
+                  "",
+                  "// ── Per-record schema ─────────────────────────────────────────────────────────",
+                  "const records = body.data;",
+                  "",
+                  "if (!Array.isArray(records)) {",
+                  "    console.error(\"Skipping per-record checks — data field is not an array:\", JSON.stringify(records));",
+                  "} else if (records.length === 0) {",
+                  "    console.warn(\"data[] is empty — seed data first or check DB connection.\");",
+                  "} else {",
+                  "    records.forEach((r, i) => {",
+                  "        pm.test(`[${i}] has all required dashboard fields`, () => {",
+                  "            pm.expect(r).to.include.all.keys(",
+                  "                \"id\", \"location\", \"timestamp\",",
+                  "                \"trafficDensity\", \"avgSpeed\", \"congestionLevel\"",
+                  "            );",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] id is a UUID (36-char string)`, () => {",
+                  "            pm.expect(r.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i);",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] location is a non-empty string`, () => {",
+                  "            pm.expect(r.location).to.be.a(\"string\").and.have.length.above(0);",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] timestamp matches LocalDateTime format`, () => {",
+                  "            pm.expect(r.timestamp).to.be.a(\"string\")",
+                  "              .and.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] trafficDensity is an integer within [0, 500]`, () => {",
+                  "            pm.expect(r.trafficDensity).to.be.a(\"number\");",
+                  "            pm.expect(r.trafficDensity % 1).to.equal(0);",
+                  "            pm.expect(r.trafficDensity).to.be.within(0, 500);",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] avgSpeed is a number within [0.0, 200.0]`, () => {",
+                  "            pm.expect(r.avgSpeed).to.be.a(\"number\");",
+                  "            pm.expect(r.avgSpeed).to.be.within(0.0, 200.0);",
+                  "        });",
+                  "",
+                  "        pm.test(`[${i}] congestionLevel is a valid enum value`, () => {",
+                  "            pm.expect([\"LOW\", \"MODERATE\", \"HIGH\", \"SEVERE\"]).to.include(r.congestionLevel);",
+                  "        });",
+                  "",
+                  "",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC24 - limit=-5 results 400 Bad request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => { ",
+                  "    pm.response.to.have.status(400); ",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions limit\", () => { ",
+                  "    const responseText = pm.response.text().toLowerCase();",
+                  "    pm.expect(responseText).to.include(\"limit\"); ",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?limit=-5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "-5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC25 - 0 Limit Throws 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => { pm.response.to.have.status(400); });",
+                  "",
+                  "pm.test(\"Error message mentions limit\", () => { ",
+                  "    const responseText = pm.response.text().toLowerCase(); pm.expect(responseText).to.include(\"limit\");  });"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC26 - limit=3 (custom limit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 default limit', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('default limit is 10', () => {",
+                  "    // Target the 'data' array inside the object",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    pm.expect(body.data.length).to.be.at.most(10);",
+                  "    pm.expect(body.data.length).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC27 - limit='abc' (string type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (non-numeric limit rejected)\", () => pm.response.to.have.status(400));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?limit=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC28 - limit='3abc' (mixed string+number) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (mixed limit rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?limit=3abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC29 - Filter congestionLevel=MODERATE → 200, all records MODERATE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const responseBody = pm.response.json();",
+                  "",
+                  "const records = responseBody.data;",
+                  "",
+                  "pm.test(\"Body data is an array\", () => pm.expect(records).to.be.an(\"array\"));",
+                  "",
+                  "pm.test(\"All records have congestionLevel = MODERATE\", () => {",
+                  "    records.forEach(r => pm.expect(r.congestionLevel).to.equal(\"MODERATE\"));",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?congestionLevel=MODERATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "congestionLevel",
+                  "value": "MODERATE"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC30 - Filter congestionLevel=INVALID (enum) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (Spring enum binding error)\", () => pm.response.to.have.status(400));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?congestionLevel=INVALID",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "congestionLevel",
+                  "value": "INVALID"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC31 - Filter congestionLevel=low (lowercase) → 400 (enum is case-sensitive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (enum is case-sensitive, lowercase rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?congestionLevel=low",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "congestionLevel",
+                  "value": "low"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC32 - Filter by full date range (from + to) → all timestamps within bounds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status Check",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "// 2. Parse the response and isolate the array exactly once",
+                  "const responseBody = pm.response.json();",
+                  "const records = responseBody.data;",
+                  "",
+                  "// 3. Verify it is actually an array",
+                  "pm.test(\"Body data is an array\", () => pm.expect(records).to.be.an(\"array\"));",
+                  "",
+                  "// 4. Set boundaries",
+                  "const from = new Date(\"2024-01-01T00:00:00\").getTime();",
+                  "const to   = new Date(\"2026-12-31T23:59:59\").getTime();",
+                  "",
+                  "// 5. Verify timestamps using the strictly defined 'records' array",
+                  "pm.test(\"All timestamps are within the requested range\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime(); ",
+                  "        ",
+                  "        pm.expect(ts).to.be.at.least(from);",
+                  "        pm.expect(ts).to.be.at.most(to);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?from=2024-01-01T00:00:00&to=2026-12-31T23:59:59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2024-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC33 - Filter by 'from' date only → all timestamps >= from",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "// 2. Set the boundary date",
+                  "const from = new Date(\"2024-01-01T00:00:00\").getTime();",
+                  "",
+                  "// 3. Extract the array from the pagination wrapper",
+                  "const records = pm.response.json().data;",
+                  "",
+                  "// 4. Loop through the array inside a single test",
+                  "pm.test(\"All timestamps are >= from date\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime();",
+                  "        pm.expect(ts).to.be.at.least(from);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?from=2024-01-01T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2024-01-01T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC34 - Filter by 'to' date only → all timestamps <= to",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status Check",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "// 2. Set the boundary date",
+                  "const to = new Date(\"2026-12-31T23:59:59\").getTime();",
+                  "",
+                  "// 3. Extract the array from the pagination wrapper",
+                  "const records = pm.response.json().data;",
+                  "",
+                  "// 4. Loop through the array inside a single test",
+                  "pm.test(\"All timestamps are <= 'to' date\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime();",
+                  "        pm.expect(ts).to.be.at.most(to);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?to=2026-12-31T23:59:59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC35 - from=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed from date)\", () => pm.response.to.have.status(400));",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?from=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC36 - to=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed to date)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?to=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC37 - Future date range with no data → 200 + empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "const data = records.data; ",
+                  "pm.test(\"Body is an array\", () => pm.expect(data).to.be.an(\"array\"));",
+                  "pm.test(\"Returns empty array for future range with no data\", () => pm.expect(data.length).to.equal(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?from=2090-01-01T00:00:00&to=2090-12-31T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2090-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2090-12-31T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC38 - location exact match → all returned records match exactly",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "const data = records.data; ",
+                  "pm.test(\"All records have location = Downtown Main St (exact match)\", () => data.forEach(r => pm.expect(r.location).to.equal(\"Downtown Main St\")));",
+                  "pm.test(\"No other locations leaked through\", () => pm.expect(data.filter(r => r.location !== \"Downtown Main St\").length).to.equal(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?location=Downtown Main St",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Downtown Main St"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC39 - location partial string → 200 + EMPTY array (cb.equal, NOT LIKE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const records = pm.response.json();",
+                  "const data = records.data; ",
+                  "",
+                  "pm.test(\"Body is an array\", () => pm.expect(data).to.be.an(\"array\"));",
+                  "",
+                  "pm.test(\"Returns valid results for partial string search\", () => {",
+                  "    pm.expect(data.length).to.be.greaterThan(0);",
+                  "    const searchString = \"Down\"; ",
+                  "    data.forEach(r => {",
+                  "        // Converting both to lowercase makes the search case-insensitive, just in case!",
+                  "        pm.expect(r.location.toLowerCase()).to.include(searchString.toLowerCase());",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?location=Down",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Down"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC40 - location='' (blank) → filter ignored, returns all records",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "const data = records.data;",
+                  "pm.test(\"Body is an array\", () => pm.expect(data).to.be.an(\"array\"));",
+                  "// Service checks: if (filter.location() != null && !filter.location().isBlank()) — blank is ignored",
+                  "pm.test(\"Returns records (blank location filter is ignored, not applied)\", () => pm.expect(data.length).to.be.greaterThan(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?location=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC41 - location=nonexistent → 200 + empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const response = pm.response.json();",
+                  "pm.test(\"Returns empty array for unknown location (not a 404)\", () => pm.expect(response.total).to.equal(0));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?location=nonexistent-place-99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "nonexistent-place-99999"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Sorting",
+      "item": [
+        {
+          "name": "TC42 - sortBy=avgSpeed&sortDir=asc → avgSpeed non-decreasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "pm.test(\"avgSpeed sorted ascending\", () => {",
+                  "    for (let i = 1; i < records.length; i++)",
+                  "        pm.expect(records[i].avgSpeed).to.be.at.least(records[i-1].avgSpeed - 0.001);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortBy=avgSpeed&sortDir=asc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "avgSpeed"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC43 - sortBy=trafficDensity&sortDir=desc → trafficDensity non-increasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "pm.test(\"trafficDensity sorted descending\", () => {",
+                  "    for (let i = 1; i < records.length; i++)",
+                  "        pm.expect(records[i].trafficDensity).to.be.at.most(records[i-1].trafficDensity);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortBy=trafficDensity&sortDir=desc&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "trafficDensity"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC44 - sortBy=timestamp&sortDir=desc → most recent first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "pm.test(\"Timestamps sorted descending (most recent first)\", () => {",
+                  "    for (let i = 1; i < records.length; i++)",
+                  "        pm.expect(new Date(records[i].timestamp).getTime()).to.be.at.most(new Date(records[i-1].timestamp).getTime());",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortBy=timestamp&sortDir=desc&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC45 - sortBy=timestamp&sortDir=asc → oldest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json();",
+                  "pm.test(\"Timestamps sorted ascending (oldest first)\", () => {",
+                  "    for (let i = 1; i < records.length; i++)",
+                  "        pm.expect(new Date(records[i].timestamp).getTime()).to.be.at.least(new Date(records[i-1].timestamp).getTime());",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortBy=timestamp&sortDir=asc&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC46 - Negative: Invalid sortDir Throws 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Assert that the backend strictly rejects the bad input",
+                  "pm.test(\"Status code is 400 Bad Request\", () => { ",
+                  "    pm.response.to.have.status(400); ",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions sortDir\", () => { ",
+                  "    const responseText = pm.response.text().toLowerCase();",
+                  "    ",
+                  "    pm.expect(responseText).to.include(\"sortdir\"); ",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortDir=INVALID&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortDir",
+                  "value": "INVALID"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC47 - Negative: Invalid sortBy Throws 400 Bad Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Assert that the backend strictly rejects the unknown field",
+                  "pm.test(\"Status code is 400 Bad Request\", () => { ",
+                  "    pm.response.to.have.status(400); ",
+                  "});",
+                  "",
+                  "// 2. Verify the error message points to the right parameter",
+                  "pm.test(\"Error message mentions sortBy\", () => { ",
+                  "    const responseText = pm.response.text();",
+                  "    ",
+                  "    // Checks if the API explicitly complains about the 'sortby' parameter",
+                  "    pm.expect(responseText).to.include(\"sortDir\"); ",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic?sortDir=UNKNOWN_FIELD&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ],
+              "query": [
+                {
+                  "key": "sortDir",
+                  "value": "UNKNOWN_FIELD"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Alerts Verification",
+      "item": [
+        {
+          "name": "TC48 - POST violating reading triggers alert (density=500, speed=5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"id is UUID\", () => pm.expect(d.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i));",
+                  "pm.test(\"trafficDensity saved as 500\", () => pm.expect(d.trafficDensity).to.equal(500));",
+                  "pm.test(\"avgSpeed saved as ~5.0\", () => pm.expect(d.avgSpeed).to.be.closeTo(5.0, 0.01));",
+                  "pm.test(\"congestionLevel is SEVERE\", () => pm.expect(d.congestionLevel).to.equal(\"SEVERE\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Alert Zone\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"trafficDensity\": 500,\n  \"avgSpeed\": 5.0,\n  \"congestionLevel\": \"SEVERE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/traffic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "traffic"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC49 - GET /api/alerts → 200 + at least one alert with valid schema",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "const alerts = Array.isArray(body) ? body : (body.data || body.content || []);",
+                  "",
+                  "pm.test(\"At least one alert exists in the system\", () => pm.expect(alerts.length).to.be.greaterThan(0));",
+                  "",
+                  "// Find the first alert specifically for TRAFFIC",
+                  "const trafficAlert = alerts.find(alert => alert.sensorType === \"TRAFFIC\");",
+                  "",
+                  "pm.test(\"At least one TRAFFIC alert exists\", () => {",
+                  "    pm.expect(trafficAlert, \"No TRAFFIC alert found in the response\").to.not.be.undefined;",
+                  "});",
+                  "",
+                  "if (trafficAlert) {",
+                  "    pm.test(\"Alert has a valid string id\", () => {",
+                  "        pm.expect(trafficAlert.id).to.be.a(\"string\").and.match(/^[0-9a-f\\-]{36}$/i);",
+                  "    });",
+                  "",
+                  "    pm.test(\"Alert has a 'firedAt' timestamp\", () => {",
+                  "        pm.expect(trafficAlert).to.have.property(\"firedAt\");",
+                  "        pm.expect(trafficAlert.firedAt).to.be.a(\"string\").and.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+                  "    });",
+                  "",
+                  "    pm.test(\"Sensor type is present and references TRAFFIC\", () => {",
+                  "        pm.expect(trafficAlert).to.have.property(\"sensorType\");",
+                  "        pm.expect(trafficAlert.sensorType.toUpperCase()).to.include(\"TRAFFIC\");",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Alert includes metric and threshold details\", () => {",
+                  "        pm.expect(trafficAlert).to.have.property(\"metric\");",
+                  "        pm.expect(trafficAlert).to.have.property(\"alertType\");",
+                  "        pm.expect(trafficAlert).to.have.property(\"thresholdValue\");",
+                  "    });",
+                  "}",
+                  "",
+                  "pm.test(\"Response does not leak sensitive data (like password)\", () => {",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.not.include(\"password\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alerts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "// Run for POST requests to the traffic endpoint, EXCEPT for the Unauthenticated Guard",
+          "if (pm.request.method === \"POST\" && ",
+          "    pm.request.url.getPath().includes(\"/api/sensors/traffic\") &&",
+          "    pm.info.requestName !== \"TC01 - Unauthenticated POST Guard\") {",
+          "    ",
+          "    // 1. Inject the IoT API Key",
+          "    pm.request.headers.add({",
+          "        key: 'X-Sensor-Key',",
+          "        value: 'dev-sensor-key-change-me'",
+          "    });",
+          "",
+          "",
+          "    // 3. Drop the Session Cookie to prevent session bypass bugs",
+          "    pm.request.headers.add({",
+          "        key: 'Cookie',",
+          "        value: ''",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

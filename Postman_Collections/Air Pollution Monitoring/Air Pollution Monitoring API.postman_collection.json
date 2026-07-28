@@ -1,0 +1,2238 @@
+{
+  "info": {
+    "_postman_id": "2b0cb95a-08ba-4094-8e29-bfcdf10dff39",
+    "name": "Air Pollution Monitoring API",
+    "description": "Test Suite for Air Pollution Sensor Data. Covers Auth, Data Ingestion (Validation limits for PM2.5, PM10, CO, NO2, SO2, Ozone), Dashboard Filtering (including partial location matches and offset pagination), Sorting, and Alerts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47000186",
+    "_collection_link": "https://go.postman.co/collection/47000186-2b0cb95a-08ba-4094-8e29-bfcdf10dff39?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "0. Unauthenticated Requests",
+      "item": [
+        {
+          "name": "TC00 - Unauthenticated GET Guard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC01 - Unauthenticated POST Guard",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Returns 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Downtown\",\n  \"timestamp\": \"2025-06-01T12:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "TC02 - Login and Set Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const token = pm.response.json().token;",
+                  "if (token) { pm.environment.set(\"token\", token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Data Ingestion & Validation (POST)",
+      "item": [
+        {
+          "name": "TC03 - Valid Air Pollution Data Creation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"id is a UUID\", () => pm.expect(d.id).to.match(/^[0-9a-f\\-]{36}$/i));",
+                  "pm.test(\"All metrics echoed correctly\", () => {",
+                  "    pm.expect(d.pm25).to.equal(15.5);",
+                  "    pm.expect(d.pollutionLevel).to.equal(\"GOOD\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Alexandria Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC04 - Boundary: CO exceeds 50.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Industrial Zone\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 50.1,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC05 - Boundary: PM2.5 below 0.0 (@DecimalMin) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Industrial Zone\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": -1.0,\n  \"pm10\": 20.0,\n  \"co\": 10.0,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 - Invalid PollutionLevel Enum → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"City Center\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"TOXIC_WASTE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC07 - Boundary: PM2.5=0.0 (min valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"pm25 is exactly 0.0\", () => pm.expect(pm.response.json().pm25).to.equal(0.0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 0.0,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC08 - Boundary: PM2.5=500.0 (max valid) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"pm25 is exactly 500.0\", () => pm.expect(pm.response.json().pm25).to.equal(500.0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 500.0,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC09 - Boundary: PM2.5 > 500.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 500.1,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC10 - Boundary: PM10 > 600.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 600.1,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC11 - Boundary: NO2 > 500.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 500.1,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC12 - Boundary: SO2 > 500.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 500.1,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC13 - Boundary: Ozone > 300.0 (@DecimalMax) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 300.1,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC14 - Missing location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC15 - Empty string location (@NotBlank) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC16 - Location exceeds 50 chars (@Size max=50) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"ThisIsAVeryLongLocationStringThatExceedsFiftyCharacters\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC17 - Missing timestamp (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC18 - Null pollutionLevel (@NotNull) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC19 - Empty body {} → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => { pm.response.to.have.status(400); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC20 - pm25 as string 'high' (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": \"high\",\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC21 - timestamp as number (type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": 1720443600,\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Dashboard & Filtering (GET)",
+      "item": [
+        {
+          "name": "TC022 - Default Dashboard View (limit=10, offset=0)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Wrapper contains 'total' and 'data' array\", () => {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body.data).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Default limit returns at most 10 records\", () => {",
+                  "    pm.expect(body.data.length).to.be.at.most(10);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC023 - Pagination offset and limit combination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns valid subset when offset is applied\", () => {",
+                  "    pm.expect(body.data).to.be.an(\"array\");",
+                  "    pm.expect(body.data.length).to.be.at.most(5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=5&offset=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "offset",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC024 - Location partial string match (LIKE operation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"Returns results for partial match (cb.like)\", () => {",
+                  "    pm.expect(records.length).to.be.greaterThan(0);",
+                  "    records.forEach(r => {",
+                  "        pm.expect(r.location.toLowerCase()).to.include(\"corniche\");",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?location=Corniche",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Corniche"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC25 - limit='abc' (string type mismatch) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (non-numeric limit rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC26 - limit='3abc' (mixed string+number) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (mixed limit rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=3abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC27 - Filter pollutionLevel=MODERATE → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"All records have pollutionLevel = MODERATE\", () => {",
+                  "    records.forEach(r => pm.expect(r.pollutionLevel).to.equal(\"MODERATE\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?pollutionLevel=MODERATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "pollutionLevel",
+                  "value": "MODERATE"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC28 - Filter pollutionLevel=INVALID (enum) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (Spring enum binding error)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?pollutionLevel=INVALID",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "pollutionLevel",
+                  "value": "INVALID"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC29 - Filter pollutionLevel=good (lowercase) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (enum is case-sensitive, lowercase rejected)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?pollutionLevel=good",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "pollutionLevel",
+                  "value": "good"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC30 - Filter by full date range (from + to)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "const from = new Date(\"2024-01-01T00:00:00\").getTime();",
+                  "const to   = new Date(\"2026-12-31T23:59:59\").getTime();",
+                  "pm.test(\"All timestamps are within the requested range\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime(); ",
+                  "        pm.expect(ts).to.be.at.least(from);",
+                  "        pm.expect(ts).to.be.at.most(to);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?from=2024-01-01T00:00:00&to=2026-12-31T23:59:59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2024-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC31 - Filter by 'from' date only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const from = new Date(\"2024-01-01T00:00:00\").getTime();",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"All timestamps are >= from date\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime();",
+                  "        pm.expect(ts).to.be.at.least(from);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?from=2024-01-01T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2024-01-01T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC32 - Filter by 'to' date only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const to = new Date(\"2026-12-31T23:59:59\").getTime();",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"All timestamps are <= 'to' date\", () => {",
+                  "    records.forEach(r => {",
+                  "        const ts = new Date(r.timestamp).getTime();",
+                  "        pm.expect(ts).to.be.at.most(to);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?to=2026-12-31T23:59:59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC33 - from=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed from date)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?from=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC34 - to=not-a-date (malformed) → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 400 (malformed to date)\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?to=not-a-date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "not-a-date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC35 - Future date range with no data → empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data; ",
+                  "pm.test(\"Returns empty array for future range with no data\", () => pm.expect(data.length).to.equal(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?from=2090-01-01T00:00:00&to=2090-12-31T00:00:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2090-01-01T00:00:00"
+                },
+                {
+                  "key": "to",
+                  "value": "2090-12-31T00:00:00"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC36 - location='' (blank) → filter ignored",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json().data;",
+                  "pm.test(\"Returns records (blank location filter is ignored, not applied)\", () => pm.expect(data.length).to.be.greaterThan(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?location=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC37 - location=nonexistent → empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const response = pm.response.json();",
+                  "pm.test(\"Returns empty array for unknown location (not a 404)\", () => pm.expect(response.total).to.equal(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?location=nonexistent-place-99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "nonexistent-place-99999"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC038 - limit=-5 results 400 Bad Request (@Min(1))",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error message mentions limit\", () => { ",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.include(\"limit\"); ",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=-5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "-5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC39 - limit=0 Throws 400 Bad Request (@Min(1))",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC40 - limit=3 (custom limit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('limit restricts output to 3', () => {",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    pm.expect(body.data.length).to.be.at.most(3);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Sorting",
+      "item": [
+        {
+          "name": "TC41 - sortBy=pm10&sortDir=desc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"PM10 sorted descending\", () => {",
+                  "    for (let i = 1; i < records.length; i++)",
+                  "        pm.expect(records[i].pm10).to.be.at.most(records[i-1].pm10);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=pm10&sortDir=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "pm10"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC42 - sortBy=pm25&sortDir=asc → pm25 non-decreasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"pm25 sorted ascending\", () => {",
+                  "    for (let i = 1; i < records.length; i++) {",
+                  "        pm.expect(records[i].pm25).to.be.at.least(records[i-1].pm25 - 0.001);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=pm25&sortDir=asc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "pm25"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC43 - sortBy=co&sortDir=desc → CO non-increasing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"CO sorted descending\", () => {",
+                  "    for (let i = 1; i < records.length; i++) {",
+                  "        pm.expect(records[i].co).to.be.at.most(records[i-1].co + 0.001);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=co&sortDir=desc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "co"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC44 - sortBy=timestamp&sortDir=desc → most recent first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"Timestamps sorted descending (most recent first)\", () => {",
+                  "    for (let i = 1; i < records.length; i++) {",
+                  "        pm.expect(new Date(records[i].timestamp).getTime()).to.be.at.most(new Date(records[i-1].timestamp).getTime());",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=timestamp&sortDir=desc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "desc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC45 - sortBy=timestamp&sortDir=asc → oldest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"Timestamps sorted ascending (oldest first)\", () => {",
+                  "    for (let i = 1; i < records.length; i++) {",
+                  "        pm.expect(new Date(records[i].timestamp).getTime()).to.be.at.least(new Date(records[i-1].timestamp).getTime());",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=timestamp&sortDir=asc&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "timestamp"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC46 - Negative: Invalid sortDir Throws 400 Bad Request (@Pattern)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", () => { ",
+                  "    pm.response.to.have.status(400); ",
+                  "});",
+                  "pm.test(\"Error message mentions sortDir validation\", () => { ",
+                  "    const responseText = pm.response.text().toLowerCase();",
+                  "    pm.expect(responseText).to.include(\"sortdir\"); ",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortDir=INVALID&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortDir",
+                  "value": "INVALID"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC47 - Negative: Invalid sortBy silent fallback → 200 (Defaults to timestamp desc)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK (silent fallback)\", () => { ",
+                  "    pm.response.to.have.status(200); ",
+                  "});",
+                  "const records = pm.response.json().data;",
+                  "pm.test(\"Defaults to timestamp descending ordering\", () => {",
+                  "    for (let i = 1; i < records.length; i++) {",
+                  "        pm.expect(new Date(records[i].timestamp).getTime()).to.be.at.most(new Date(records[i-1].timestamp).getTime());",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?sortBy=UNKNOWN_FIELD&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "UNKNOWN_FIELD"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Alerts Verification",
+      "item": [
+        {
+          "name": "TC48 - POST reading that triggers CO/Ozone Alert",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Alert Trigger Zone\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 400.0,\n  \"pm10\": 500.0,\n  \"co\": 49.0,\n  \"no2\": 400.0,\n  \"so2\": 400.0,\n  \"ozone\": 290.0,\n  \"pollutionLevel\": \"HAZARDOUS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC49 - GET /api/alerts verifies trigger",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const alerts = Array.isArray(body) ? body : (body.data || body.content || []);",
+                  "pm.test(\"At least one alert exists for AIR_POLLUTION\", () => {",
+                  "    pm.expect(alerts.length).to.be.greaterThan(0);",
+                  "    const airAlert = alerts.find(a => a.sensorType === \"AIR_POLLUTION\");",
+                  "    pm.expect(airAlert).to.not.be.undefined;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alerts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Schem-Validation",
+      "item": [
+        {
+          "name": "Schema-Validation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const responseData = pm.response.json();",
+                  "",
+                  "const schemaString = pm.collectionVariables.get(\"airPollutionSchema\");",
+                  "const airPollutionSchema = JSON.parse(schemaString);",
+                  "",
+                  "pm.test(\"Response body matches Air Pollution Schema\", function () {",
+                  "    pm.response.to.have.jsonSchema(airPollutionSchema);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Corniche\",\n  \"timestamp\": \"2026-07-08T14:00:00\",\n  \"pm25\": 15.5,\n  \"pm10\": 20.0,\n  \"co\": 1.2,\n  \"no2\": 10.5,\n  \"so2\": 5.0,\n  \"ozone\": 25.0,\n  \"pollutionLevel\": \"GOOD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Schema-Validation (GET) Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const responseData = pm.response.json();",
+                  "",
+                  "const baseSchemaString = pm.collectionVariables.get(\"airPollutionSchema\");",
+                  "const baseAirPollutionSchema = JSON.parse(baseSchemaString);",
+                  "",
+                  "const paginatedSchema = {",
+                  "    \"type\": \"object\",",
+                  "    \"properties\": {",
+                  "        \"total\": { ",
+                  "            \"type\": \"integer\",",
+                  "            \"minimum\": 0",
+                  "        },",
+                  "        \"data\": {",
+                  "            \"type\": \"array\",",
+                  "            \"items\": baseAirPollutionSchema",
+                  "        }",
+                  "    },",
+                  "    \"required\": [\"total\", \"data\"],",
+                  "    \"additionalProperties\": false ",
+                  "};",
+                  "",
+                  "// 4. Execute the assertions",
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Response body matches Air Pollution paginated schema\", function () {",
+                  "    pm.response.to.have.jsonSchema(paginatedSchema);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sensors/air-pollution?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sensors",
+                "air-pollution"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "if (pm.request.method === \"POST\" && ",
+          "    pm.request.url.getPath().includes(\"/api/sensors/air-pollution\") &&",
+          "    !pm.info.requestName.includes(\"Unauthenticated\")) {",
+          "    pm.request.headers.add({ key: 'X-Sensor-Key', value: 'dev-sensor-key-change-me' });",
+          "    pm.request.headers.add({ key: 'Cookie', value: '' });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "airPollutionSchema",
+      "value": ""
+    }
+  ]
+}

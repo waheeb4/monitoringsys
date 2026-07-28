@@ -1,0 +1,1559 @@
+{
+  "info": {
+    "_postman_id": "23d74db8-e393-4a11-9fb4-21357821f771",
+    "name": "Auth & Profile",
+    "description": "Complete API test collection with 24 test cases.\n\n## How to Use\n1. Import this collection into Postman\n2. Set `base_url` to your server (default: http://localhost:3000)\n3. Run the collection in order — tokens chain automatically\n\n## Test Coverage\n- Auth Signup: 7 cases (incl. empty body, empty name, empty email)\n- Auth Login: 5 cases (incl. empty body, empty email)\n- Users/Me: 2 cases\n- Users/Password: 6 cases (incl. empty body, empty current, empty new)\n- Users/Picture: 3 cases (incl. empty body)\n- Heartbeat: 1 case",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "47000186",
+    "_collection_link": "https://go.postman.co/collection/47000186-23d74db8-e393-4a11-9fb4-21357821f771?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "TC15 — Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const setCookieHeader = pm.response.headers.get(\"Set-Cookie\");",
+                  "",
+                  "if (setCookieHeader && setCookieHeader.includes(\"XSRF-TOKEN\")) {",
+                  "    const match = setCookieHeader.match(/XSRF-TOKEN=([^;]+)/);",
+                  "    if (match) {",
+                  "        // CHANGED: Use collectionVariables instead of environment",
+                  "        pm.collectionVariables.set(\"xsrf_token\", match[1]);",
+                  "        console.log(\"CSRF Token dynamically captured from TC15 and saved!\");",
+                  "    } else {",
+                  "        console.warn(\"XSRF-TOKEN cookie found, but failed to parse the value.\");",
+                  "    }",
+                  "} else {",
+                  "    console.warn(\"No Set-Cookie header with XSRF-TOKEN found in the response.\");",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/heartbeat",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "heartbeat"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Unauthenticated Requests",
+      "item": [
+        {
+          "name": "TC09 — Missing Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC09 — Returns 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('TC09 — No sensitive data leaked', function () {",
+                  "    const body = pm.response.json();",
+                  "    const raw = JSON.stringify(body).toLowerCase();",
+                  "    pm.expect(raw).to.not.include('password');",
+                  "    pm.expect(raw).to.not.include('secret');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC25 - Change Password No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC25 — Returns 401 Unauthorized', function () {\r",
+                  "    pm.response.to.have.status(401);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"currentPassword\": \"{{password}}\",\r\n  \"newPassword\": \"NewStrong@2\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/users/password",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC26 - Change Picture No Token Copy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC25 — Returns 401 Unauthorized', function () {\r",
+                  "    pm.response.to.have.status(401);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"currentPassword\": \"{{test_password}}\",\r\n  \"newPassword\": \"NewStrong@2\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth — Signup",
+      "item": [
+        {
+          "name": "TC01 — Successful Registration",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// 1. Destroy any stale environment variables that are shadowing our new data",
+                  "const varsToClear = [",
+                  "    'test_email', 'test_fname', 'test_lname', ",
+                  "    'test_password', 'test_new_password', 'access_token', 'xsrf_token'",
+                  "];",
+                  "varsToClear.forEach(v => pm.environment.unset(v));",
+                  "",
+                  "// 2. Generate the brand new, unique data for this specific test run",
+                  "const unique = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;",
+                  "pm.collectionVariables.set('test_email', `testuser_${unique}@example.com`);",
+                  "pm.collectionVariables.set('test_fname', 'Test');",
+                  "pm.collectionVariables.set('test_lname', 'User');",
+                  "pm.collectionVariables.set('test_password', 'StrongPass@1');",
+                  "pm.collectionVariables.set('test_new_password', 'NewStrong@2'); ",
+                  "",
+                  "console.log('Generated and set fresh email:', pm.collectionVariables.get('test_email'));"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC01 — Returns 201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('TC01 — Returns JWT token', function () {",
+                  "    const body = pm.response.json();",
+                  "    const token = body.token || body.accessToken || body.access_token;",
+                  "    pm.expect(token).to.be.a('string');",
+                  "    pm.expect(token.length).to.be.greaterThan(0);",
+                  "    pm.collectionVariables.set('access_token', token);",
+                  "});",
+                  "",
+                  "pm.test('TC01 — Returns user object', function () {",
+                  "    const body = pm.response.json();",
+                  "    const user = body.user || body;",
+                  "    pm.expect(user).to.have.any.keys('id', '_id');",
+                  "    pm.expect(user).to.have.property('email');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{test_fname}}\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC02 — Invalid Email Format",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC02 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('TC02 — Returns error message about email', function () {",
+                  "    const body = pm.response.json();",
+                  "    const msg = JSON.stringify(body).toLowerCase();",
+                  "    pm.expect(msg).to.include('email');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{test_fname}}\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"user@com\",\n  \"password\": \"StrongPass@1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC03 — Weak Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC03 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('TC03 — Returns password complexity error', function () {",
+                  "    const body = pm.response.json();",
+                  "    const msg = JSON.stringify(body).toLowerCase();",
+                  "    pm.expect(msg).to.satisfy(function(m) {",
+                  "        return m.includes('password') || m.includes('complexity') || m.includes('weak') || m.includes('short');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{test_fname}}\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"weakpass@example.com\",\n  \"password\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC04 — Name Length Exceeded (>30 chars)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC04 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('TC04 — Returns error about name length', function () {",
+                  "    const body = pm.response.json();",
+                  "    const msg = JSON.stringify(body).toLowerCase();",
+                  "    pm.expect(msg).to.satisfy(function(m) {",
+                  "        return m.includes('name') || m.includes('length') || m.includes('characters') || m.includes('long');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"dfsddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"longname@example.com\",\n  \"password\": \"StrongPass@1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC16 — Signup Empty Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC16 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC17 — Signup Empty Name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC17 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"emptyname@example.com\",\n  \"password\": \"StrongPass@1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC18 — Signup Empty Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC18 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{test_fname}}\",\n  \"lastName\": \"{{test_lname}}\",\n  \"email\": \"\",\n  \"password\": \"StrongPass@1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth — Login",
+      "item": [
+        {
+          "name": "TC05 — Valid Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC05 — Returns 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('TC05 — Returns JWT token', function () {",
+                  "    const body = pm.response.json();",
+                  "    const token = body.token || body.accessToken || body.access_token;",
+                  "    pm.expect(token).to.be.a('string');",
+                  "    pm.expect(token.length).to.be.greaterThan(0);",
+                  "    ",
+                  "    pm.collectionVariables.set('access_token', token);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC06 — Incorrect Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC06 — Returns 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"WrongPassword@99\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC07 — Non-existent User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC07 — Returns 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody_exists_here@fakeemail.com\",\n  \"password\": \"AnyPass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC19 — Login Empty Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC19 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC20 — Login Empty Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC20 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\",\n  \"password\": \"StrongPass@1\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users — Profile",
+      "item": [
+        {
+          "name": "TC08 — Fetch Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Extract the fresh token generated AFTER login",
+                  "const setCookieHeader = pm.response.headers.get(\"Set-Cookie\");",
+                  "",
+                  "if (setCookieHeader && setCookieHeader.includes(\"XSRF-TOKEN\")) {",
+                  "    const match = setCookieHeader.match(/XSRF-TOKEN=([^;]+)/);",
+                  "    if (match) {",
+                  "        pm.collectionVariables.set(\"xsrf_token\", match[1]);",
+                  "        console.log(\"Fresh CSRF Token captured after login and saved!\");",
+                  "    }",
+                  "}",
+                  "pm.test('TC08 — Returns 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('TC08 — Returns user data', function () {",
+                  "    const body = pm.response.json();",
+                  "    const user = body.user || body;",
+                  "    pm.expect(user).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test('TC08 — Does NOT expose password', function () {",
+                  "    const body = pm.response.json();",
+                  "    const raw = JSON.stringify(body);",
+                  "    pm.expect(raw).to.not.include('password');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users — Password",
+      "item": [
+        {
+          "name": "TC10 — Change Password Success",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC10 — Returns 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const originalPassword = 'NewStrong@1'; // the original from TC01",
+                  "const newPassword = 'newPassword@2';       // what TC10 just changed it to",
+                  "",
+                  "const baseUrl = pm.environment.get('base_url');",
+                  "const token = pm.environment.get('token');",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{test_password}}\",\n  \"newPassword\": \"{{test_new_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC11 — Wrong Current Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC11 — Returns 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"TotallyWrong@99\",\n  \"newPassword\": \"AnotherPass@3\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC12 — New Password Invalid (Weak)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC12 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{test_password}}\",\n  \"newPassword\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC21 — Password Change Empty Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC21 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC22 — Password Change Empty Current Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC22 — Returns 400 Unauthourized', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"\",\n  \"newPassword\": \"NewStrong@2\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC23 — Password Change Empty New Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC23 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{test_password}}\",\n  \"newPassword\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users — Picture",
+      "item": [
+        {
+          "name": "TC13 — Update Profile Picture URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC13 — Returns 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pictureUrl\": \"https://example.com/photos/profile.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/picture",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "picture"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC14 — Malformed URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC14 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"picture\": \"not-a-link\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/picture",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "picture"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC24 — Picture Empty Body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC24 — Returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/picture",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "picture"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth — Logout",
+      "item": [
+        {
+          "name": "TC27 - Logout No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC27 Logout with no token returns 200 anyway\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "TC28 - Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "\r",
+                  "pm.test(\"Logout returns 200\", () => {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "\r",
+                  "pm.environment.unset(\"auth_token\");\r",
+                  "\r",
+                  "//\r",
+                  "pm.test(\"Token cleared from environment\", () => {\r",
+                  "    const token = pm.environment.get(\"auth_token\");\r",
+                  "    pm.expect(token).to.be.undefined;\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "const method = pm.request.method;",
+          "",
+          "// Only intercept state-modifying requests",
+          "if (['PATCH', 'POST', 'PUT', 'DELETE'].includes(method)) {",
+          "    const csrfToken = pm.collectionVariables.get(\"xsrf_token\");",
+          "    const jwtToken = pm.collectionVariables.get(\"access_token\") || pm.environment.get(\"access_token\");",
+          "    ",
+          "    if (csrfToken) {",
+          "        // 1. Always inject the CSRF Custom Header to bypass 403s",
+          "        pm.request.headers.upsert({",
+          "            key: 'X-XSRF-TOKEN',",
+          "            value: csrfToken",
+          "        });",
+          "        ",
+          "        // 2. Check if the test is intentionally testing an unauthenticated state",
+          "        if (jwtToken && !pm.info.requestName.includes(\"No Token\")) {",
+          "            // Standard authenticated request: Attach both",
+          "            pm.request.headers.upsert({",
+          "                key: 'Cookie',",
+          "                value: `XSRF-TOKEN=${csrfToken}; token=${jwtToken}`",
+          "            });",
+          "        } else {",
+          "            // \"No Token\" request: Attach ONLY the CSRF token, intentionally hiding the JWT",
+          "            pm.request.headers.upsert({",
+          "                key: 'Cookie',",
+          "                value: `XSRF-TOKEN=${csrfToken}`",
+          "            });",
+          "        }",
+          "    }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "// Safely check ALL headers to reliably catch the rotating token",
+          "const allHeaders = pm.response.headers.all();",
+          "const cookieHeaders = allHeaders.filter(h => h.key.toLowerCase() === 'set-cookie');",
+          "",
+          "for (let header of cookieHeaders) {",
+          "    if (header.value.includes('XSRF-TOKEN=')) {",
+          "        const match = header.value.match(/XSRF-TOKEN=([^;]+)/);",
+          "        if (match) {",
+          "            pm.collectionVariables.set(\"xsrf_token\", match[1]);",
+          "            break;",
+          "        }",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "access_token",
+      "secret": true
+    },
+    {
+      "key": "test_password",
+      "value": ""
+    },
+    {
+      "key": "X-XSRF-TOKEN",
+      "value": ""
+    },
+    {
+      "key": "xsrf_token",
+      "value": ""
+    },
+    {
+      "key": "test_email",
+      "value": ""
+    },
+    {
+      "key": "test_fname",
+      "value": ""
+    },
+    {
+      "key": "test_lname",
+      "value": ""
+    },
+    {
+      "key": "test_new_password",
+      "value": ""
+    }
+  ]
+}
