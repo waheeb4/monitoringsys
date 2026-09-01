@@ -9,7 +9,7 @@ pipeline {
             // to this repo's absolute checkout path on the host. Do not point
             // this at the root working tree; it is an ignored, dedicated CI
             // checkout.
-            customWorkspace "${CI_WORKSPACE_ROOT}/custom-jenkins/jenkins-workspace/monitoring-system"
+            customWorkspace "${CI_WORKSPACE_ROOT}/runner/jenkins-workspace/monitoring-system"
         }
     }
 

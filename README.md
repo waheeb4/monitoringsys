@@ -11,7 +11,7 @@ backend, and MySQL database.
 | `IoT-Monitoring-System-backend/` | Spring Boot backend and database image |
 | `selenium/` | Selenium/TestNG frontend tests |
 | `postman/` | Postman API collections and sanity tests |
-| `custom-jenkins/` | Local Jenkins controller |
+| `runner/` | Local Jenkins controller |
 | `k8s/` | Kubernetes and OpenShift deployment |
 
 The frontend, backend, and Selenium projects are Git submodules.
@@ -142,7 +142,7 @@ Required Jenkins configuration:
 | `OPENSHIFT_SERVER` | Global environment variable |
 | `CI_WORKSPACE_ROOT` | Global environment variable |
 
-See [custom-jenkins/README.md](custom-jenkins/README.md) for setup details.
+See [runner/README.md](runner/README.md) for setup details.
 
 ## Deployment Documentation
 
