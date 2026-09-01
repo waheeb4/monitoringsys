@@ -10,7 +10,7 @@ backend, and MySQL database.
 | `IoT-Monitoring-System-frontend/` | Angular frontend |
 | `IoT-Monitoring-System-backend/` | Spring Boot backend and database image |
 | `selenium/` | Selenium/TestNG frontend tests |
-| `Sanity-Pack/` | Postman API sanity tests |
+| `postman/` | Postman API collections and sanity tests |
 | `custom-jenkins/` | Local Jenkins controller |
 | `k8s/` | Kubernetes and OpenShift deployment |
 
@@ -107,8 +107,8 @@ Available suites:
 With the backend running:
 
 ```bash
-newman run "Sanity-Pack/Sanity Check.postman_collection.json" \
-  --environment "Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
+newman run "postman/Sanity-Pack/Sanity Check.postman_collection.json" \
+  --environment "postman/Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
   --env-var baseUrl=http://localhost:8080
 ```
 

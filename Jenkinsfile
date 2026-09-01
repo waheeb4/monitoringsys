@@ -48,8 +48,8 @@ pipeline {
                     docker network connect "${COMPOSE_PROJECT}_backend-net" monitoring-jenkins
                     trap 'docker network disconnect "${COMPOSE_PROJECT}_backend-net" monitoring-jenkins >/dev/null 2>&1 || true' EXIT
 
-                    newman run "Sanity-Pack/Sanity Check.postman_collection.json" \
-                        --environment "Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
+                    newman run "postman/Sanity-Pack/Sanity Check.postman_collection.json" \
+                        --environment "postman/Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
                         --env-var baseUrl=http://backend:8080
                 '''
             }
