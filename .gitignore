@@ -8,6 +8,7 @@ JAVA.md
 # secrets
 secrets/
 k8s/database-secret.yaml
+.env
 
 # Generated Jenkins workspace
 runner/jenkins-workspace/

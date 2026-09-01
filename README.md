@@ -37,12 +37,14 @@ git submodule update --init --recursive
 
 ## Run Locally
 
-Create the database password file:
+Create the database password and JWT signing key files:
 
 ```bash
 install -d -m 0700 secrets
 printf '%s' 'your-local-password' > secrets/mysql_root_password.txt
 chmod 0644 secrets/mysql_root_password.txt
+openssl rand -base64 32 > secrets/jwt_secret.txt
+chmod 0644 secrets/jwt_secret.txt
 ```
 
 Start the application:
@@ -73,6 +75,16 @@ Reset the application and its data:
 
 ```bash
 docker compose down --volumes
+```
+
+### Run Published Images
+
+`docker-compose.hub.yml` runs the images already published to Docker Hub
+instead of building from source. Copy `.env.example` to `.env` and fill in
+real values (see the file for generation instructions), then:
+
+```bash
+docker compose -f docker-compose.hub.yml up --detach
 ```
 
 ## Tests
