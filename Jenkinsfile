@@ -36,6 +36,12 @@ pipeline {
                         install -o 1001 -g 1001 -m 0400 \
                             /dev/null secrets/mysql_root_password.txt
                         printf '%s' "$MYSQL_ROOT_PASSWORD" > secrets/mysql_root_password.txt
+
+                        # The sanity pack only exercises JWT issuance/validation
+                        # within this run, so a fresh throwaway signing key is
+                        # generated per build rather than stored as a credential.
+                        install -o 1001 -g 1001 -m 0400 /dev/null secrets/jwt_secret.txt
+                        head -c 32 /dev/urandom | base64 > secrets/jwt_secret.txt
                     '''
                 }
             }
@@ -115,7 +121,7 @@ pipeline {
                 docker compose -p "$COMPOSE_PROJECT" down --volumes --remove-orphans || true
                 docker logout >/dev/null 2>&1 || true
                 oc logout >/dev/null 2>&1 || true
-                rm -f secrets/mysql_root_password.txt
+                rm -f secrets/mysql_root_password.txt secrets/jwt_secret.txt
             '''
         }
         success {
