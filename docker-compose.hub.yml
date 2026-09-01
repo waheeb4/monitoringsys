@@ -3,14 +3,14 @@ services:
     image: waheeb4/iot-database:${IMAGE_VERSION}
     container_name: iot-database
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
     networks:
       - backend-net
     restart: unless-stopped
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}"]
       interval: 30s
       timeout: 5s
       start_period: 30s
@@ -24,10 +24,10 @@ services:
       JWT_EXPIRATION_MS: 86400000
       SPRING_DATASOURCE_URL: jdbc:mysql://iot-database:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: rootpassword123
-      JWT_SECRET: myjwtsecretkey123456789012345678
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       CORS_ALLOWED_ORIGINS: http://localhost
-      SENSOR_API_KEY: my-sensor-key-12345
+      SENSOR_API_KEY: ${SENSOR_API_KEY:?Set SENSOR_API_KEY in .env}
       SIMULATOR_BASE_URL: http://localhost:8080
     networks:
       - backend-net

@@ -46,10 +46,10 @@ services:
       context: ./IoT-Monitoring-System-backend
       dockerfile: backend.Dockerfile
 
-    # Use an entrypoint wrapper to read the secret file and export it
-    # as SPRING_DATASOURCE_PASSWORD before Spring Boot starts
+    # Use an entrypoint wrapper to read the secret files and export them
+    # as SPRING_DATASOURCE_PASSWORD/JWT_SECRET before Spring Boot starts
     entrypoint: ["/bin/sh", "-c",
-      "export SPRING_DATASOURCE_PASSWORD=$(cat /run/secrets/mysql_root_password) && exec java -Djava.security.egd=file:/dev/./urandom -jar app.jar"
+      "export SPRING_DATASOURCE_PASSWORD=$(cat /run/secrets/mysql_root_password) JWT_SECRET=$(cat /run/secrets/jwt_secret) && exec java -Djava.security.egd=file:/dev/./urandom -jar app.jar"
     ]
 
     environment:
@@ -57,13 +57,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://database-service:3306/monitoring?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
-      JWT_SECRET: kmagGAc2ml20bTa78jT1qrwnp6fR2BVCT4qJnd5LoyH
       JWT_EXPIRATION_MS: 86400000
-
-
 
     secrets:
       - mysql_root_password
+      - jwt_secret
 
     volumes:
       - backend_data:/app/data
@@ -145,3 +143,5 @@ volumes:
 secrets:
   mysql_root_password:
     file: ./secrets/mysql_root_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
