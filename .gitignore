@@ -2,6 +2,9 @@
 SQL.md
 JAVA.md
 
+# OS
+.DS_Store
+
 # secrets
 secrets/
 k8s/database-secret.yaml
