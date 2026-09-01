@@ -117,7 +117,16 @@ newman run "postman/Sanity-Pack/Sanity Check.postman_collection.json" \
 Start the local Jenkins controller:
 
 ```bash
-docker compose -f custom-jenkins/docker-compose.yml up --build --detach
+docker build --tag monitoring-jenkins runner
+
+docker run --detach \
+    --name monitoring-jenkins \
+    --user 0:0 \
+    --publish 8088:8080 \
+    --volume jenkins_home:/var/jenkins_home \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
+    --volume "$PWD:$PWD" \
+    monitoring-jenkins
 ```
 
 Open <http://localhost:8088>.

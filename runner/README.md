@@ -12,8 +12,21 @@ pipeline:
 From the repository root:
 
 ```bash
-docker compose -f custom-jenkins/docker-compose.yml up --build -d
+docker build --tag monitoring-jenkins runner
+
+docker run --detach \
+    --name monitoring-jenkins \
+    --user 0:0 \
+    --publish 8088:8080 \
+    --volume jenkins_home:/var/jenkins_home \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
+    --volume "$PWD:$PWD" \
+    monitoring-jenkins
 ```
+
+The `"$PWD:$PWD"` mount must be run from the repository root — it puts the CI
+checkout at the identical absolute path inside Jenkins and on the host Docker
+daemon, which the pipeline relies on for Compose file secrets.
 
 Open <http://localhost:8088>. Retrieve the one-time administrator password:
 
@@ -26,7 +39,7 @@ Create a Pipeline job that uses this repository's `Jenkinsfile`.
 Before running the pipeline, set `CI_WORKSPACE_ROOT` as a Jenkins global
 environment variable (Manage Jenkins > System > Global properties) to this
 repository's absolute checkout path on the host. The `Jenkinsfile` uses it to
-build a `customWorkspace` that lines up with the `${PWD}:${PWD}` bind mount
+build a `customWorkspace` that lines up with the `"$PWD:$PWD"` bind mount
 above.
 
 ## Important security note
