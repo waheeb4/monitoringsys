@@ -10,8 +10,8 @@ backend, and MySQL database.
 | `IoT-Monitoring-System-frontend/` | Angular frontend |
 | `IoT-Monitoring-System-backend/` | Spring Boot backend and database image |
 | `selenium/` | Selenium/TestNG frontend tests |
-| `Sanity-Pack/` | Postman API sanity tests |
-| `custom-jenkins/` | Local Jenkins controller |
+| `postman/` | Postman API collections and sanity tests |
+| `runner/` | Local Jenkins controller |
 | `k8s/` | Kubernetes and OpenShift deployment |
 
 The frontend, backend, and Selenium projects are Git submodules.
@@ -25,8 +25,8 @@ The frontend, backend, and Selenium projects are Git submodules.
 ## Clone
 
 ```bash
-git clone --recurse-submodules git@github.com:waheeb4/monitoring-system.git
-cd monitoring-system
+git clone --recurse-submodules git@github.com:waheeb4/monitoringsys.git
+cd monitoringsys
 ```
 
 For an existing clone:
@@ -107,8 +107,8 @@ Available suites:
 With the backend running:
 
 ```bash
-newman run "Sanity-Pack/Sanity Check.postman_collection.json" \
-  --environment "Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
+newman run "postman/Sanity-Pack/Sanity Check.postman_collection.json" \
+  --environment "postman/Sanity-Pack/IoT monitoring system - dev.postman_environment.json" \
   --env-var baseUrl=http://localhost:8080
 ```
 
@@ -117,7 +117,16 @@ newman run "Sanity-Pack/Sanity Check.postman_collection.json" \
 Start the local Jenkins controller:
 
 ```bash
-docker compose -f custom-jenkins/docker-compose.yml up --build --detach
+docker build --tag monitoring-jenkins runner
+
+docker run --detach \
+    --name monitoring-jenkins \
+    --user 0:0 \
+    --publish 8088:8080 \
+    --volume jenkins_home:/var/jenkins_home \
+    --volume /var/run/docker.sock:/var/run/docker.sock \
+    --volume "$PWD:$PWD" \
+    monitoring-jenkins
 ```
 
 Open <http://localhost:8088>.
@@ -140,8 +149,9 @@ Required Jenkins configuration:
 | `dockerhub` | Username and token |
 | `openshift` | Secret text token |
 | `OPENSHIFT_SERVER` | Global environment variable |
+| `CI_WORKSPACE_ROOT` | Global environment variable |
 
-See [custom-jenkins/README.md](custom-jenkins/README.md) for setup details.
+See [runner/README.md](runner/README.md) for setup details.
 
 ## Deployment Documentation
 

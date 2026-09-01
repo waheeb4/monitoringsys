@@ -2,9 +2,12 @@
 SQL.md
 JAVA.md
 
+# OS
+.DS_Store
+
 # secrets
 secrets/
 k8s/database-secret.yaml
 
 # Generated Jenkins workspace
-custom-jenkins/jenkins-workspace/
+runner/jenkins-workspace/
