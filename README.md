@@ -25,8 +25,8 @@ The frontend, backend, and Selenium projects are Git submodules.
 ## Clone
 
 ```bash
-git clone --recurse-submodules git@github.com:waheeb4/monitoring-system.git
-cd monitoring-system
+git clone --recurse-submodules git@github.com:waheeb4/monitoringsys.git
+cd monitoringsys
 ```
 
 For an existing clone:
