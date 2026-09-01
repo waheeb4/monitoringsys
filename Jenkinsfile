@@ -2,10 +2,14 @@ pipeline {
     agent {
         node {
             label 'built-in'
-            // This path is bind-mounted into Jenkins at the same absolute
-            // location on the Docker host. Do not point this at the root
-            // working tree; it is an ignored, dedicated CI checkout.
-            customWorkspace '/home/waheeb/Desktop/dev/monitoring-system/custom-jenkins/jenkins-workspace/monitoring-system'
+            // Must resolve to the identical absolute path on both Jenkins and
+            // the host Docker daemon, so it lives under CI_WORKSPACE_ROOT
+            // rather than a path hardcoded here. Set CI_WORKSPACE_ROOT as a
+            // Jenkins global environment variable (Manage Jenkins > System)
+            // to this repo's absolute checkout path on the host. Do not point
+            // this at the root working tree; it is an ignored, dedicated CI
+            // checkout.
+            customWorkspace "${CI_WORKSPACE_ROOT}/custom-jenkins/jenkins-workspace/monitoring-system"
         }
     }
 

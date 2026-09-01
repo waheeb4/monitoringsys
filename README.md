@@ -140,6 +140,7 @@ Required Jenkins configuration:
 | `dockerhub` | Username and token |
 | `openshift` | Secret text token |
 | `OPENSHIFT_SERVER` | Global environment variable |
+| `CI_WORKSPACE_ROOT` | Global environment variable |
 
 See [custom-jenkins/README.md](custom-jenkins/README.md) for setup details.
 

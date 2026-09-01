@@ -23,6 +23,12 @@ docker exec monitoring-jenkins cat /var/jenkins_home/secrets/initialAdminPasswor
 
 Create a Pipeline job that uses this repository's `Jenkinsfile`.
 
+Before running the pipeline, set `CI_WORKSPACE_ROOT` as a Jenkins global
+environment variable (Manage Jenkins > System > Global properties) to this
+repository's absolute checkout path on the host. The `Jenkinsfile` uses it to
+build a `customWorkspace` that lines up with the `${PWD}:${PWD}` bind mount
+above.
+
 ## Important security note
 
 The Docker socket mount lets pipeline jobs build and run Docker containers on
